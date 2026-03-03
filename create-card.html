@@ -1,0 +1,204 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<title>Create Card</title></head>
+<style>.spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  background: transparent url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4IiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMyI+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjAiLz4KICA8cGF0aCBkPSJNNDQgMjRhMjAgMjAgMCAwIDEtMjAgMjAiPgogICAgPGFuaW1hdGVUcmFuc2Zvcm0gYXR0cmlidXRlTmFtZT0idHJhbnNmb3JtIiB0eXBlPSJyb3RhdGUiIGZyb209IjAgMjQgMjQiIHRvPSIzNjAgMjQgMjQiIGR1cj0iMXMiIHJlcGVhdENvdW50PSJpbmRlZmluaXRlIi8+CiAgPC9wYXRoPgo8L3N2Zz4=') center center no-repeat;
+  background-size: 40px 40px;
+}</style>
+<body>
+<div id="hidepaypal3" class="vce-row-container" data-vce-boxed-width="true"><div class="vce-row vce-row--has-col-background vce-row--col-gap-30 vce-row-equal-height vce-row-content--top" id="el-64801acf" data-vce-do-apply="all el-64801acf"><div class="vce-row-content" data-vce-element-content="true">
+<div class="vce-col vce-element--has-background vce-col--md-auto vce-col--xs-1 vce-col--xs-last vce-col--xs-first vce-col--sm-last vce-col--sm-first vce-col--md-first vce-col--lg-first vce-col--xl-first" id="el-b0c2d469"><div class="vce-col-inner" data-vce-do-apply="border margin background  el-b0c2d469">
+<div class="vce-content-background-container"></div>
+<div class="vce-col-content" data-vce-element-content="true" data-vce-do-apply="padding el-b0c2d469">
+<div class="vce-text-block"><div class="vce-text-block-wrapper vce" id="el-1657c0bf" data-vce-do-apply="all el-1657c0bf">
+<h2 style="text-align: center;"><strong>Mastercard (Min 100 - Max 499.99 USD</strong></h2>
+<ul style="list-style: none;"><li>Mastercard available from $100 USD to $499.99 USD</li><li>Supports Apple Pay and Google Pay</li><li>Accepted worldwide</li></ul>
+<p>⚠️ Warning: Sending incorrect amount or token blockchain network will result in permanent loss of your funds.</p>
+</div></div>
+<div class="vce-raw-html">
+<!-- MASTERCARD FORM -->
+<form id="masterForm">
+<input type="number" id="masterAmount" min="100" max="499.99" step="0.01" required style="border-radius:7px;" placeholder="Enter amount USD">
+<br><br>
+<button style="border-radius:7px;" type="submit">Create Mastercard</button>
+</form>
+</div>
+</div>
+</div></div>
+<div class="vce-col vce-element--has-background vce-col--md-auto vce-col--xs-1 vce-col--xs-last vce-col--xs-first vce-col--sm-last vce-col--sm-first vce-col--md-last vce-col--lg-last vce-col--xl-last" id="el-92d3a529"><div class="vce-col-inner" data-vce-do-apply="border margin background  el-92d3a529">
+<div class="vce-content-background-container"></div>
+<div class="vce-col-content" data-vce-element-content="true" data-vce-do-apply="padding el-92d3a529"><div class="vce-text-block"><div class="vce-text-block-wrapper vce" id="el-58e2f783" data-vce-do-apply="all el-58e2f783">
+<div class="vce-raw-html">
+<!-- VISA FORM -->
+<h2 style="text-align: center;"><strong>Visa Card (Min 5 - Max 1000 USD)</strong></h2>
+<ul style="list-style: none;"><li>Visa available from $5 USD to $1000 USD</li><li>❌ This type of card doesn't support Apple Pay or Google Pay</li><li>Accepted worldwide but more on USA websites.</li></ul>
+<p>⚠️ Warning: Sending incorrect amount or token blockchain network will result in permanent loss of your funds.</p>
+<form id="visaForm">
+<input type="number" id="visaAmount" min="5" max="1000" required style="border-radius:7px;" placeholder="Enter amount USD">
+<br><br>
+<button disabled style="border-radius:7px;" type="submit">Out of stock</button>
+</form>
+</div>
+</div></div></div>
+</div></div>
+</div></div></div>
+<div class="vce-row-container" data-vce-boxed-width="true"><div class="vce-row vce-row--has-col-background vce-row--col-gap-30 vce-row-equal-height vce-row-content--top" id="el-64801acf" data-vce-do-apply="all el-64801acf"><div class="vce-row-content" data-vce-element-content="true">
+
+<div class="vce-col vce-element--has-background vce-col--md-auto vce-col--xs-1 vce-col--xs-last vce-col--xs-first vce-col--sm-last vce-col--sm-first vce-col--md-last vce-col--lg-last vce-col--xl-last" id="el-92d3a529"><div class="vce-col-inner" data-vce-do-apply="border margin background  el-92d3a529">
+<div class="vce-content-background-container"></div>
+<div class="vce-col-content" data-vce-element-content="true" data-vce-do-apply="padding el-92d3a529"><div class="vce-text-block"><div class="vce-text-block-wrapper vce" id="el-58e2f783" data-vce-do-apply="all el-58e2f783">
+<div class="vce-raw-html">
+<div id="hidepaypal4">
+<h2 style="text-align: center;"><strong>PayPal Gift Card (Min 5 - Max 1000 USD)</strong></h2>
+<ul style="list-style: none;"><li>PayPal balance available from $5 USD to $1000 USD without any KYC</li><li>PayPal may impose 4-7% fees depending on your country account, usually balance should be available instantly but sometimes it might take up to 24 hours or you may need to claim it from your PayPal account or email.</li></ul>
+<p>⚠️ Warning: Sending incorrect amount or token blockchain network will result in permanent loss of your funds.</p>
+<form id="paypalForm">
+<input type="number" id="paypalAmount" min="5" max="1000" required 
+style="border-radius:7px;" placeholder="Enter amount USD">
+<br><br>
+
+<input type="email" id="paypalEmail" required 
+style="border-radius:7px;" placeholder="Enter PayPal Email">
+<br><br>
+
+<button style="border-radius:7px;" type="submit">Create PayPal Card</button>
+</form>
+</div>
+<div id="loading-spinner" style="display:none; text-align:center; margin-top:10px;">
+<div class="spinner"></div>
+</div>
+
+<div id="result"></div>
+<div style="padding-bottom:5px;" id="qrcode"></div>
+</div>
+</div></div></div>
+</div></div>
+</div></div></div>
+<div id="hidepaypal5" class="vce-row-container" data-vce-boxed-width="true"><div class="vce-row vce-element--has-background vce-row--col-gap-30 vce-row-equal-height vce-row-content--top" id="el-d4f2581e" data-vce-do-apply="all el-d4f2581e">
+<div class="vce-content-background-container"></div>
+<div class="vce-row-content" data-vce-element-content="true"><div class="vce-col vce-col--md-auto vce-col--xs-1 vce-col--xs-last vce-col--xs-first vce-col--sm-last vce-col--sm-first vce-col--md-last vce-col--lg-last vce-col--xl-last vce-col--md-first vce-col--lg-first vce-col--xl-first" id="el-e366a7a1"><div class="vce-col-inner" data-vce-do-apply="border margin background  el-e366a7a1"><div class="vce-col-content" data-vce-element-content="true" data-vce-do-apply="padding el-e366a7a1"><div class="vce-text-block"><div class="vce-text-block-wrapper vce" id="el-cf88ec3b" data-vce-do-apply="all el-cf88ec3b">
+
+<script>
+function copyText(button){
+const copyContainer = button.parentElement;
+const input = copyContainer.querySelector("input");
+input.select();
+document.execCommand("copy");
+copyContainer.classList.add("active");
+setTimeout(()=> copyContainer.classList.remove("active"),2000);
+}
+
+async function createOrder(provider, amount, paypalEmail = null){
+
+const spinner = document.getElementById('loading-spinner');
+const resultDiv = document.getElementById('result');
+const qrDiv = document.getElementById('qrcode');
+
+resultDiv.innerHTML = '';
+qrDiv.innerHTML = '';
+spinner.style.display = 'block';
+/* Hide forms */
+document.getElementById("hidepaypal3").style.display="none";
+document.getElementById("hidepaypal4").style.display="none";
+document.getElementById("hidepaypal5").style.display="none";
+document.getElementById("result").scrollIntoView({
+  behavior: "smooth"   // remove if you don't want smooth scroll
+});
+
+try{
+
+/* Build API URL */
+let url = `https://api.paygate.to/crypto/cards/wallet.php?provider=${provider}&amount=${amount}`;
+
+if(provider === "paypal"){
+if(!paypalEmail){
+throw new Error("PayPal email is required");
+}
+url += `&paypal_email=${encodeURIComponent(paypalEmail)}`;
+}
+const response = await fetch(url);
+const data = await response.json();
+
+if(!data.address_in || !data.redeem_id){
+spinner.style.display = 'none';
+throw new Error("Invalid API response");
+}
+
+spinner.style.display = 'none';
+
+/* Display Result */
+resultDiv.innerHTML = `
+
+<p><strong>Card Type:</strong> ${data.card_value} ${data.card_currency} ${provider.toUpperCase()}</p>
+
+<h4><strong>Redeem ID (IMPORTANT):</strong></h4>
+<div class="copy-text">
+<input type="text" class="text" value="${data.redeem_id}" readonly>
+<button onclick="copyText(this)">Copy</button>
+</div>
+<h4><strong>Payment Address & Amount</strong></h4>
+<h3 style="color:red;">Send <strong>${data.amount}</strong> USDT (Polygon)</h3>
+<h5><strong>Address:</strong></h5>
+<div class="copy-text">
+<input type="text" class="text" value="${data.address_in}" readonly>
+<button onclick="copyText(this)">Copy</button>
+</div>
+`;
+
+/* Display QR exactly like docs */
+qrDiv.innerHTML = `<img style="padding:10%;" src="data:image/png;base64,${data.qr_code}" alt="Payment QR Code"><p style="color:blue;">Send ${data.amount} ${data.payment_instructions} to ${data.address_in}</p><p>After sending the correct amount use the redeem id: <b>${data.redeem_id}</b> to <a href="#track">check your payment status and redeem your card</a></p>`;
+
+}catch(error){
+spinner.style.display = 'none';
+resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+}
+}
+
+document.getElementById('visaForm').addEventListener('submit', function(e){
+e.preventDefault();
+const amount = document.getElementById('visaAmount').value;
+if(amount < 5 || amount > 1000){
+alert("Visa amount must be between 5 and 1000 USD");
+return;
+}
+createOrder("visa", amount);
+});
+
+document.getElementById('masterForm').addEventListener('submit', function(e){
+e.preventDefault();
+const amount = document.getElementById('masterAmount').value;
+if(amount < 100 || amount > 499.99){
+alert("Mastercard amount must be between 100 and 499.99 USD");
+return;
+}
+createOrder("mastercard", amount);
+});
+
+document.getElementById('paypalForm').addEventListener('submit', function(e){
+e.preventDefault();
+
+const amount = document.getElementById('paypalAmount').value;
+const email = document.getElementById('paypalEmail').value;
+
+if(amount < 5 || amount > 1000){
+alert("PayPal amount must be between 5 and 1000 USD");
+return;
+}
+
+if(!email){
+alert("PayPal email is required");
+return;
+}
+
+createOrder("paypal", amount, email);
+});
+</script>
+
+</div></div></div></div></div></div>
+</div></div>
+</body>
+</html>
