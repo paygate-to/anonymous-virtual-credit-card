@@ -15,14 +15,14 @@
 <div class="vce-content-background-container"></div>
 <div class="vce-col-content" data-vce-element-content="true" data-vce-do-apply="padding el-b0c2d469">
 <div class="vce-text-block"><div class="vce-text-block-wrapper vce" id="el-1657c0bf" data-vce-do-apply="all el-1657c0bf">
-<h2 style="text-align: center;"><strong>Mastercard (Min 100 - Max 499.99 USD</strong></h2>
-<ul style="list-style: none;"><li>Mastercard available from $100 USD to $499.99 USD</li><li>Supports Apple Pay and Google Pay</li><li>Accepted worldwide</li></ul>
+<h2 style="text-align: center;"><strong>Mastercard (Min 100 - Max 499 USD</strong></h2>
+<ul style="list-style: none;"><li>Mastercard available from $100 USD to $499 USD</li><li>Supports Apple Pay and Google Pay</li><li>Accepted worldwide</li></ul>
 <p>⚠️ Warning: Sending incorrect amount or token blockchain network will result in permanent loss of your funds.</p>
 </div></div>
 <div class="vce-raw-html">
 <!-- MASTERCARD FORM -->
 <form id="masterForm">
-<input type="number" id="masterAmount" min="100" max="499.99" step="0.01" required style="border-radius:7px;" placeholder="Enter amount USD">
+<input type="number" id="masterAmount" min="100" max="499" step="0.01" required style="border-radius:7px;" placeholder="Enter amount USD">
 <br><br>
 <button style="border-radius:7px;" type="submit">Create Mastercard</button>
 </form>
@@ -171,8 +171,8 @@ createOrder("visa", amount);
 document.getElementById('masterForm').addEventListener('submit', function(e){
 e.preventDefault();
 const amount = document.getElementById('masterAmount').value;
-if(amount < 100 || amount > 499.99){
-alert("Mastercard amount must be between 100 and 499.99 USD");
+if(amount < 100 || amount > 499){
+alert("Mastercard amount must be between 100 and 499 USD");
 return;
 }
 createOrder("mastercard", amount);
