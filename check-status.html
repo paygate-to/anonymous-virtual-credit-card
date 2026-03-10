@@ -95,6 +95,13 @@ html += `
 </p>
 `;
 
+} else if (data.card_issuer_status === 'completed' && data.redeem_link == 'N/A'){
+html += `
+<p style="margin-top:10px; color:blue;">
+Your order is now completed.  
+Check your email for more info.
+</p>
+`;
 }else{
 
 html += `
