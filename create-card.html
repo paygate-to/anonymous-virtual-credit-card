@@ -121,7 +121,7 @@ if (--timer < 0){
 clearInterval(interval);
 
 document.getElementById("qrcode").innerHTML = "";
-document.getElementById("hidepaymentaddress").innerHTML = "<h3 style='color:red;'>Payment time expired. Please create a new order.</h3>";
+document.getElementById("hidepaymentaddress").innerHTML = "<h3 style='color:red;'>Payment time expired.</h3><p>If you have sent the correct amount in time <a href='#track'>check your payment status and redeem your card</a>. Otherwise you can start over and create a new order.</p>";
 }
 
 }, 1000);
