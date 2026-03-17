@@ -8,6 +8,15 @@
   margin: 0 auto;
   background: transparent url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4IiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMyI+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjAiLz4KICA8cGF0aCBkPSJNNDQgMjRhMjAgMjAgMCAwIDEtMjAgMjAiPgogICAgPGFuaW1hdGVUcmFuc2Zvcm0gYXR0cmlidXRlTmFtZT0idHJhbnNmb3JtIiB0eXBlPSJyb3RhdGUiIGZyb209IjAgMjQgMjQiIHRvPSIzNjAgMjQgMjQiIGR1cj0iMXMiIHJlcGVhdENvdW50PSJpbmRlZmluaXRlIi8+CiAgPC9wYXRoPgo8L3N2Zz4=') center center no-repeat;
   background-size: 40px 40px;
+}
+@keyframes timerColor {
+  0% { color: green; }
+  50% { color: red; }
+  100% { color: green; }
+}
+
+#timer {
+  animation: timerColor 1s infinite;
 }</style>
 <body>
 <div id="hidepaypal3" class="vce-row-container" data-vce-boxed-width="true"><div class="vce-row vce-row--has-col-background vce-row--col-gap-30 vce-row-equal-height vce-row-content--top" id="el-64801acf" data-vce-do-apply="all el-64801acf"><div class="vce-row-content" data-vce-element-content="true">
@@ -92,6 +101,32 @@ copyContainer.classList.add("active");
 setTimeout(()=> copyContainer.classList.remove("active"),2000);
 }
 
+function startTimer(duration){
+let timer = duration, minutes, seconds;
+
+const interval = setInterval(function(){
+
+minutes = parseInt(timer / 60, 10);
+seconds = parseInt(timer % 60, 10);
+
+minutes = minutes < 10 ? "0" + minutes : minutes;
+seconds = seconds < 10 ? "0" + seconds : seconds;
+
+const timerEl = document.getElementById("timer");
+if(timerEl){
+timerEl.textContent = minutes + ":" + seconds;
+}
+
+if (--timer < 0){
+clearInterval(interval);
+
+document.getElementById("qrcode").innerHTML = "";
+document.getElementById("hidepaymentaddress").innerHTML = "<h3 style='color:red;'>Payment time expired. Please create a new order.</h3>";
+}
+
+}, 1000);
+}
+
 async function createOrder(provider, amount, paypalEmail = null){
 
 const spinner = document.getElementById('loading-spinner');
@@ -140,6 +175,7 @@ resultDiv.innerHTML = `
 <input type="text" class="text" value="${data.redeem_id}" readonly>
 <button onclick="copyText(this)">Copy</button>
 </div>
+<div id="hidepaymentaddress">
 <h4><strong>Payment Address & Amount</strong></h4>
 <h3 style="color:red;">Send <strong>${data.amount}</strong> USDT (Polygon)</h3>
 <h5><strong>Address:</strong></h5>
@@ -147,11 +183,12 @@ resultDiv.innerHTML = `
 <input type="text" class="text" value="${data.address_in}" readonly>
 <button onclick="copyText(this)">Copy</button>
 </div>
+</div>
 `;
 
 /* Display QR exactly like docs */
-qrDiv.innerHTML = `<img style="padding:10%;" src="data:image/png;base64,${data.qr_code}" alt="Payment QR Code"><p style="color:blue;">Send ${data.amount} ${data.payment_instructions} to ${data.address_in}</p><p>After sending the correct amount use the redeem id: <b>${data.redeem_id}</b> to <a href="#track">check your payment status and redeem your card</a></p>`;
-
+qrDiv.innerHTML = `<p style="color:blue;font-size:20px;"><strong>Time remaining: <span id="timer">10:00</span></strong></p><img style="padding:10%;" src="data:image/png;base64,${data.qr_code}" alt="Payment QR Code"><p style="color:blue;">Send ${data.amount} ${data.payment_instructions} to ${data.address_in}</p><p>After sending the correct amount use the redeem id: <b>${data.redeem_id}</b> to <a href="#track">check your payment status and redeem your card</a></p>`;
+startTimer(600); // 10 minute countdown
 }catch(error){
 spinner.style.display = 'none';
 resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
