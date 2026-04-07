@@ -208,8 +208,8 @@ createOrder("visa", amount);
 document.getElementById('masterForm').addEventListener('submit', function(e){
 e.preventDefault();
 const amount = document.getElementById('masterAmount').value;
-if(amount < 100 || amount > 499){
-alert("Mastercard amount must be between 100 and 499 USD");
+if(amount < 5 || amount > 999){
+alert("Mastercard amount must be between 5 and 999 USD");
 return;
 }
 createOrder("mastercard", amount);
