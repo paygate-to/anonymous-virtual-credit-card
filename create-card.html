@@ -33,6 +33,22 @@
 <form id="masterForm">
 <input type="number" id="masterAmount" min="5" max="499" step="1" required style="border-radius:7px;" placeholder="Enter amount USD">
 <br><br>
+<label><strong>Deposit Currency</strong></label><br>
+
+<select
+    id="masterTicker"
+    style="border-radius:7px;width:100%;padding:8px;">
+
+    <option value="">USDT (Polygon)</option>
+    <option value="polygon/usdc">USDC (Polygon)</option>
+    <option value="btc">Bitcoin</option>
+    <option value="eth">Ethereum</option>
+    <option value="sol/sol">Solana</option>
+    <option value="xmr">Monero</option>
+
+</select>
+
+<br><br>
 <button style="border-radius:7px;" type="submit">Create Mastercard</button>
 </form>
 </div>
@@ -48,6 +64,22 @@
 <p>⚠️ Warning: Sending incorrect amount or token blockchain network will result in permanent loss of your funds.</p>
 <form id="visaForm">
 <input type="number" id="visaAmount" min="5" max="1000" step="0.01" required style="border-radius:7px;" placeholder="Enter amount USD">
+<br><br>
+<label><strong>Deposit Currency</strong></label><br>
+
+<select
+    id="visaTicker"
+    style="border-radius:7px;width:100%;padding:8px;">
+
+    <option value="">USDT (Polygon)</option>
+    <option value="polygon/usdc">USDC (Polygon)</option>
+    <option value="btc">Bitcoin</option>
+    <option value="eth">Ethereum</option>
+    <option value="sol/sol">Solana</option>
+    <option value="xmr">Monero</option>
+
+</select>
+
 <br><br>
 <button disabled style="border-radius:7px;" type="submit">Out of stock</button>
 </form>
@@ -69,7 +101,22 @@
 <input type="number" id="paypalAmount" min="5" max="1000" step="0.01" required 
 style="border-radius:7px;" placeholder="Enter amount USD">
 <br><br>
+<label><strong>Deposit Currency</strong></label><br>
 
+<select
+    id="paypalTicker"
+    style="border-radius:7px;width:100%;padding:8px;">
+
+    <option value="">USDT (Polygon)</option>
+    <option value="polygon/usdc">USDC (Polygon)</option>
+    <option value="btc">Bitcoin</option>
+    <option value="eth">Ethereum</option>
+    <option value="sol/sol">Solana</option>
+    <option value="xmr">Monero</option>
+
+</select>
+
+<br><br>
 <input type="email" id="paypalEmail" required 
 style="border-radius:7px;" placeholder="Enter PayPal Email">
 <br><br>
@@ -127,7 +174,7 @@ document.getElementById("hidepaymentaddress").innerHTML = "<h3 style='color:red;
 }, 1000);
 }
 
-async function createOrder(provider, amount, paypalEmail = null){
+async function createOrder(provider, amount, paypalEmail = null, ticker = ""){
 
 const spinner = document.getElementById('loading-spinner');
 const resultDiv = document.getElementById('result');
@@ -148,7 +195,9 @@ try{
 
 /* Build API URL */
 let url = `https://api.paygate.to/crypto/cards/wallet.php?provider=${provider}&amount=${amount}`;
-
+if (ticker) {
+    url += `&ticker=${encodeURIComponent(ticker)}`;
+}
 if(provider === "paypal"){
 if(!paypalEmail){
 throw new Error("PayPal email is required");
@@ -177,7 +226,7 @@ resultDiv.innerHTML = `
 </div>
 <div id="hidepaymentaddress">
 <h4><strong>Payment Address & Amount</strong></h4>
-<h3 style="color:red;">Send <strong>${data.amount}</strong> USDT (Polygon)</h3>
+<h3 style="color:red;">Send <strong>${data.amount}</strong> ${data.payment_instructions}</h3>
 <h5><strong>Address:</strong></h5>
 <div class="copy-text">
 <input type="text" class="text" value="${data.address_in}" readonly>
@@ -202,7 +251,7 @@ if(amount < 5 || amount > 1000){
 alert("Visa amount must be between 5 and 1000 USD");
 return;
 }
-createOrder("visa", amount);
+createOrder("visa", amount, null, document.getElementById("visaTicker").value);
 });
 
 document.getElementById('masterForm').addEventListener('submit', function(e){
@@ -212,7 +261,7 @@ if(amount < 5 || amount > 499){
 alert("Mastercard amount must be between 5 and 499 USD");
 return;
 }
-createOrder("mastercard", amount);
+createOrder("mastercard", amount, null, document.getElementById("masterTicker").value);
 });
 
 document.getElementById('paypalForm').addEventListener('submit', function(e){
@@ -231,7 +280,7 @@ alert("PayPal email is required");
 return;
 }
 
-createOrder("paypal", amount, email);
+createOrder("paypal", amount, email, document.getElementById("paypalTicker").value);
 });
 </script>
 
