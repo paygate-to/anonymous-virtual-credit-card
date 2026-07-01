@@ -123,6 +123,43 @@ style="border-radius:7px;" placeholder="Enter PayPal Email">
 
 <button style="border-radius:7px;" type="submit">Create PayPal Card</button>
 </form>
+
+<div class="vce-row vce-row--has-col-background vce-row--col-gap-30 vce-row-equal-height vce-row-content--top" id="el-64801acf" data-vce-do-apply="all el-64801acf"><div class="vce-row-content" data-vce-element-content="true">
+
+<div class="vce-col vce-element--has-background vce-col--md-auto vce-col--xs-1 vce-col--xs-last vce-col--xs-first vce-col--sm-last vce-col--sm-first vce-col--md-first vce-col--lg-first vce-col--xl-first" id="el-b0c2d469"><div class="vce-col-inner" data-vce-do-apply="border margin background  el-b0c2d469">
+<div class="vce-content-background-container"></div>
+<div class="vce-col-content" data-vce-element-content="true" data-vce-do-apply="padding el-b0c2d469">
+<div class="vce-text-block"><div class="vce-text-block-wrapper vce" id="el-1657c0bf" data-vce-do-apply="all el-1657c0bf">
+<h2 style="text-align: center;"><strong>Binance Gift Card (Min 5 - Max 500 USD</strong></h2>
+<ul style="list-style: none;"><li>Binance gift cards available from $5 USD to $500 USD</li><li>Support funding Binance account with Monero (XMR).</li><li>Accepted worldwide</li></ul>
+<p>⚠️ Warning: Sending incorrect amount or token blockchain network will result in permanent loss of your funds.</p>
+</div></div>
+<div class="vce-raw-html">
+<!-- BINANCE FORM -->
+<form id="binanceForm">
+<input type="number" id="binanceAmount" min="5" max="500" step="1" required="" style="border-radius:7px;" placeholder="Enter amount USD">
+<br><br>
+<label><strong>Deposit Currency</strong></label><br>
+
+<select id="binanceTicker" style="border-radius:7px;width:100%;padding:8px;">
+
+    <option value="">USDT (Polygon)</option>
+    <option value="polygon/usdc">USDC (Polygon)</option>
+    <option value="btc">Bitcoin</option>
+    <option value="eth">Ethereum</option>
+    <option value="sol/sol">Solana</option>
+    <option value="xmr">Monero</option>
+
+</select>
+
+<br><br>
+<button style="border-radius:7px;" type="submit">Create Binance</button>
+</form>
+</div>
+</div>
+</div></div>
+
+</div></div>
 </div>
 <div id="loading-spinner" style="display:none; text-align:center; margin-top:10px;">
 <div class="spinner"></div>
@@ -252,6 +289,24 @@ alert("Visa amount must be between 5 and 1000 USD");
 return;
 }
 createOrder("visa", amount, null, document.getElementById("visaTicker").value);
+});
+
+document.getElementById('binanceForm').addEventListener('submit', function(e){
+    e.preventDefault();
+
+    const amount = document.getElementById('binanceAmount').value;
+
+    if(amount < 5 || amount > 500){
+        alert("Binance Gift Card amount must be between 5 and 500 USD");
+        return;
+    }
+
+    createOrder(
+        "binance",
+        amount,
+        null,
+        document.getElementById("binanceTicker").value
+    );
 });
 
 document.getElementById('masterForm').addEventListener('submit', function(e){
