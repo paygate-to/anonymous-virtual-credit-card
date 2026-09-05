@@ -1,0 +1,2253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reloadable Virtual Credit Card</title>
+<!--
+  ===========================================================================
+  RELOADABLE VIRTUAL CREDIT CARDS  ·  drop-in white-label widget
+  ===========================================================================
+
+  Anonymous, reloadable crypto-funded Visa and Mastercard virtual cards.
+  No KYC, no email, no password, no API key — an account is a session string
+  the customer holds. Top up in crypto, mint cards against the balance, then
+  load, reveal and add them to Apple Pay or Google Pay.
+
+  HOW TO USE
+    1. Open this file in a browser — it works as-is, nothing to install.
+    2. To embed it in your own site, copy the <style>, the <div id="rlApp">
+       and the <script> into your page. Everything is scoped to #rlApp, so it
+       cannot touch the rest of your CSS or leak globals.
+    3. To brand it, change the custom properties at the top of the <style>.
+    4. To earn commission on top-ups, fill in CONFIG.affiliate in the script.
+
+  API reference
+    https://paygate.to/docs/virtual-credit-cards-api/reloadable/
+
+  This widget talks only to https://api.paygate.to — no build step, no
+  dependencies, no tracking, no third-party requests.
+  ===========================================================================
+-->
+<style>
+/* ===========================================================================
+   Design tokens. Everything below is driven by these — change them here to
+   match your brand and the whole widget follows. They are declared on #rlApp
+   rather than :root so the widget cannot alter the page you drop it into.
+   =========================================================================== */
+#rlApp{
+  --bg:#ffffff;
+  --bg-soft:#f6f9fc;
+  --bg-softer:#eef2f8;
+  --card:#ffffff;
+  --border:#e6e9ef;
+  --border-strong:#d5dbe6;
+  --text:#0a2540;
+  --text-soft:#425466;
+  --muted:#6b7a90;
+  --primary:#635bff;
+  --primary-dark:#4b45cc;
+  --primary-soft:#eef0ff;
+  --accent:#00d4b1;
+  --danger:#e5484d;
+  --warn:#f5a623;
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-lg:22px;
+  --shadow-sm:0 1px 2px rgba(10,37,64,.06), 0 1px 3px rgba(10,37,64,.05);
+  --shadow:0 4px 16px rgba(10,37,64,.08);
+  --shadow-lg:0 24px 60px rgba(10,37,64,.14);
+  --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+
+  /* the widget brings its own typography so it looks the same on any page */
+  font-family:var(--font);
+  font-size:16px;
+  line-height:1.6;
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  box-sizing:border-box;
+  max-width:880px;
+  margin:0 auto;
+  padding:0 16px;
+}
+#rlApp *,#rlApp *::before,#rlApp *::after{box-sizing:border-box}
+
+/* ---------- element resets, scoped so the host page is untouched ---------- */
+#rlApp h1,#rlApp h2,#rlApp h3,#rlApp h4,#rlApp h5{
+  color:var(--text);line-height:1.25;font-weight:800;letter-spacing:-.02em;margin:0 0 .4em}
+#rlApp p{margin:0 0 1em;color:var(--text-soft)}
+#rlApp strong{color:var(--text);font-weight:700}
+#rlApp a{color:var(--primary);text-decoration:none}
+#rlApp a:hover{color:var(--primary-dark);text-decoration:underline}
+#rlApp ul,#rlApp ol{margin:0 0 1em;padding-left:1.3em;color:var(--text-soft)}
+#rlApp li{margin-bottom:.4em}
+#rlApp img{max-width:100%;height:auto}
+
+#rlApp label{display:block;font-weight:700;color:var(--text);font-size:.92rem;margin:14px 0 6px}
+#rlApp input[type="text"],#rlApp input[type="number"],#rlApp input[type="email"],#rlApp select{
+  width:100%;padding:12px 14px;font-size:1rem;font-family:inherit;color:var(--text);
+  background:#fff;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);
+  outline:none;transition:border-color .15s,box-shadow .15s}
+#rlApp input:focus,#rlApp select:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+#rlApp select{appearance:none;-webkit-appearance:none;padding-right:38px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7a90' d='M6 8 0 2l1.4-1.4L6 5.2 10.6.6 12 2z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center}
+#rlApp button{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--primary);color:#fff;font-weight:700;font-size:.95rem;font-family:inherit;
+  padding:12px 20px;border:none;border-radius:var(--radius-sm);cursor:pointer;
+  box-shadow:var(--shadow-sm);transition:transform .12s,background .15s,box-shadow .15s}
+#rlApp button:hover:not(:disabled){background:var(--primary-dark);transform:translateY(-1px);box-shadow:var(--shadow)}
+#rlApp button:disabled{background:#9aa5b1;color:#e6e9ee;cursor:not-allowed;box-shadow:none;opacity:.7;transform:none}
+
+/* ---------- copy-to-clipboard field ---------- */
+#rlApp .copy-text{position:relative;display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px;
+  background:#fff;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm)}
+#rlApp .copy-text input.text{flex:1;min-width:0;width:100%;padding:8px 10px;font-size:.88rem;
+  color:var(--text-soft);border:none;outline:none;background:transparent;box-shadow:none}
+#rlApp .copy-text input.text:focus{border:none;box-shadow:none}
+#rlApp .copy-text button{flex:none;padding:9px 14px;font-size:.85rem;border-radius:8px}
+#rlApp .copy-text.is-copied::after{content:"Copied";position:absolute;top:-34px;right:0;
+  background:var(--text);color:#fff;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600}
+
+/* ---------- spinner ---------- */
+#rlApp .spinner{display:inline-block;width:34px;height:34px;border:3px solid var(--primary-soft);
+  border-top-color:var(--primary);border-radius:50%;animation:rlSpin .7s linear infinite}
+@keyframes rlSpin{to{transform:rotate(360deg)}}
+
+/* ---------- payment marks on the welcome screen ---------- */
+#rlApp .rl-marks{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:22px 30px;padding:20px;margin:0 0 20px;background:var(--bg-soft);
+  border:1px solid var(--border);border-radius:var(--radius)}
+#rlApp .rl-marks > svg{height:26px;width:auto;display:block;opacity:.9;transition:opacity .2s}
+#rlApp .rl-marks > svg:hover{opacity:1}
+#rlApp .rl-mark-wallet{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;
+  font-weight:700;color:var(--text-soft);white-space:nowrap}
+#rlApp .rl-mark-wallet svg{width:15px;height:15px;display:block;flex:none;color:var(--text-soft)}
+
+
+/* ---------- shared shell ---------- */
+#rlApp{max-width:860px;margin:0 auto}
+#rlApp .rl-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:26px;margin:0 0 22px}
+#rlApp h3.rl-h{margin:0 0 6px;font-size:1.2rem}
+#rlApp p.rl-sub{margin:0 0 18px;color:var(--text-soft);font-size:.92rem;line-height:1.5}
+#rlApp .rl-note{border:1px solid var(--border);border-left:3px solid var(--primary);background:var(--bg-soft);
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:13px 16px;margin:14px 0;font-size:.86rem;color:var(--text-soft);line-height:1.5}
+#rlApp .rl-note.warn{border-left-color:var(--warn)}
+#rlApp .rl-note.danger{border-left-color:var(--danger)}
+#rlApp .rl-note strong{color:var(--text)}
+#rlApp .rl-note p{margin:0 0 .6em;color:inherit;font-size:inherit}
+#rlApp .rl-note p:last-child{margin:0}
+#rlApp .rl-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:auto;
+  padding:12px 20px!important;border-radius:var(--radius-sm)!important;font-weight:700;font-size:.92rem;
+  border:none;cursor:pointer;margin:0!important}
+#rlApp .rl-btn--ghost{background:transparent!important;color:var(--text)!important;border:1.5px solid var(--border-strong)!important}
+#rlApp .rl-btn--ghost:hover:not(:disabled){background:var(--bg-soft)!important;border-color:var(--primary)!important;color:var(--primary)!important}
+#rlApp .rl-btn--danger{background:transparent!important;color:var(--danger)!important;border:1.5px solid var(--border-strong)!important}
+#rlApp .rl-btn--danger:hover:not(:disabled){background:rgba(229,72,77,.08)!important;border-color:var(--danger)!important}
+#rlApp .rl-btn--sm{padding:8px 13px!important;font-size:.8rem}
+#rlApp .rl-btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+#rlApp .rl-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#rlApp .rl-err{margin:12px 0 0;padding:11px 14px;border-radius:var(--radius-sm);background:rgba(229,72,77,.1);
+  color:#a3232a;font-size:.86rem;font-weight:600;border:1px solid rgba(229,72,77,.25)}
+#rlApp .rl-ok{margin:12px 0 0;padding:11px 14px;border-radius:var(--radius-sm);background:rgba(0,212,177,.13);
+  color:#0a7d5a;font-size:.86rem;font-weight:600;border:1px solid rgba(0,212,177,.28)}
+
+/* ---------- blocking spinner ---------- */
+#rlApp .rl-wait{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:34px 20px}
+#rlApp .rl-wait-title{font-weight:800;font-size:1.05rem;color:var(--text)}
+#rlApp .rl-wait-sub{font-size:.87rem;color:var(--text-soft);max-width:44ch;line-height:1.55}
+#rlApp .rl-wait-bar{width:100%;max-width:320px;height:5px;border-radius:999px;background:var(--bg-softer);overflow:hidden}
+#rlApp .rl-wait-bar i{display:block;height:100%;width:38%;border-radius:999px;background:var(--primary);animation:rlSlide 1.5s ease-in-out infinite}
+@keyframes rlSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+/* ---------- credential save panel ---------- */
+#rlApp .rl-cred{border:1.5px solid var(--warn);background:rgba(245,166,35,.07);border-radius:var(--radius);padding:20px;margin-top:6px}
+#rlApp .rl-cred h4{margin:0 0 6px;font-size:1rem;color:var(--text)}
+#rlApp .rl-cred-label{display:block;font-weight:800;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 4px}
+#rlApp .rl-ack{display:flex;align-items:flex-start;gap:10px;margin-top:18px;font-size:.86rem;color:var(--text);line-height:1.45;cursor:pointer}
+#rlApp .rl-ack input{width:18px!important;height:18px;margin:2px 0 0;flex:none;accent-color:var(--primary)}
+
+/* ---------- account bar ---------- */
+#rlApp .rl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:20px 24px;margin-bottom:20px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+#rlApp .rl-bal-label{font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-bal-value{font-size:1.85rem;font-weight:900;color:var(--text);line-height:1.05;font-variant-numeric:tabular-nums}
+#rlApp .rl-bar-actions{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap}
+
+/* ---------- tabs ---------- */
+#rlApp .rl-tabs{display:flex;gap:4px;padding:5px;background:var(--bg-soft);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:20px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#rlApp .rl-tab{flex:1 1 auto;white-space:nowrap;background:transparent!important;border:none!important;box-shadow:none!important;
+  color:var(--muted)!important;font-weight:700;font-size:.87rem;padding:10px 14px!important;border-radius:var(--radius-sm)!important;
+  cursor:pointer;margin:0!important;transition:background .15s,color .15s}
+#rlApp .rl-tab:hover{background:var(--bg-softer)!important;color:var(--text)!important;transform:none!important;box-shadow:none!important}
+#rlApp .rl-tab[aria-selected="true"]{background:var(--card)!important;color:var(--primary)!important;box-shadow:var(--shadow-sm)!important}
+
+/* ---------- card tiles ---------- */
+/* Brand marks keep the issuer's own SVG source, so these tokens give it a
+   palette inside our light card rather than the issuer's dark table chrome. */
+#rlApp{--table_bg:#ffffff;--border_primary:var(--border);--visa_text:#1434CB}
+#rlApp .rl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+#rlApp .rl-card{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;
+  background:var(--card);box-shadow:var(--shadow);transition:box-shadow .18s,border-color .18s}
+#rlApp .rl-card:hover{box-shadow:var(--shadow-lg)}
+#rlApp .rl-accent{display:block;height:3px;width:100%}
+#rlApp .rl-accent--aurora{background:var(--primary)}
+#rlApp .rl-accent--shadow{background:#425466}
+#rlApp .rl-accent--eclipse{background:var(--accent)}
+#rlApp .rl-accent--default{background:var(--border-strong)}
+#rlApp .rl-head{display:flex;align-items:center;gap:12px;padding:18px 20px 0}
+#rlApp .rl-brand{flex:none;display:flex;align-items:center}
+#rlApp .rl-brand svg{display:block;border-radius:0!important;height:24px;width:auto}
+#rlApp .rl-head-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+#rlApp .rl-tier-pill{align-self:flex-start;font-size:.66rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;line-height:1.4}
+#rlApp .rl-pill--aurora{background:var(--primary-soft);color:var(--primary-dark)}
+#rlApp .rl-pill--shadow{background:#eef1f6;color:#425466}
+#rlApp .rl-pill--eclipse{background:rgba(0,212,177,.15);color:#0a7d5a}
+#rlApp .rl-pill--default{background:var(--bg-softer);color:var(--text-soft)}
+#rlApp .rl-card-label{font-size:.92rem;font-weight:800;color:var(--text);line-height:1.2;overflow-wrap:anywhere}
+#rlApp .rl-wallets{flex:none;display:flex;align-items:center;gap:7px}
+#rlApp .rl-wallets svg{width:15px;height:15px;display:block;border-radius:0!important;color:var(--text-soft)}
+#rlApp .rl-pan{margin:16px 20px 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:1.12rem;letter-spacing:.08em;font-weight:600;color:var(--text)}
+#rlApp .rl-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 20px 0}
+#rlApp .rl-meta div{min-width:74px}
+#rlApp .rl-meta dt{font-size:.6rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-meta dd{margin:1px 0 0;font-size:.84rem;font-weight:700;color:var(--text-soft);font-variant-numeric:tabular-nums}
+#rlApp .rl-body{padding:16px 20px 18px;margin-top:16px;border-top:1px solid var(--border);background:var(--bg-soft)}
+#rlApp .rl-money{display:flex;flex-wrap:wrap;gap:14px 22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+#rlApp .rl-money div{min-width:88px}
+#rlApp .rl-money dt{font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-money dd{margin:2px 0 0;font-size:1rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+#rlApp .rl-money dd.rl-dim{color:var(--muted);font-weight:700;font-size:.92rem}
+#rlApp .rl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+#rlApp .rl-chip{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:800;letter-spacing:.02em;
+  text-transform:uppercase;padding:4px 9px;border-radius:999px;white-space:nowrap;line-height:1.4}
+#rlApp .rl-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+#rlApp .rl-chip--ok{color:#0a7d5a;background:rgba(0,212,177,.15)}
+#rlApp .rl-chip--warn{color:#9a5b00;background:rgba(245,166,35,.16)}
+#rlApp .rl-chip--bad{color:var(--danger);background:rgba(229,72,77,.12)}
+#rlApp .rl-chip--info{color:var(--primary);background:var(--primary-soft)}
+#rlApp .rl-card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+#rlApp .rl-empty-card{margin-top:14px;padding:14px 16px;border-radius:var(--radius-sm);background:rgba(245,166,35,.09);
+  border:1px solid rgba(245,166,35,.3)}
+#rlApp .rl-empty-card h5{margin:0 0 5px;font-size:.9rem;color:var(--text)}
+#rlApp .rl-empty-card p{margin:0;font-size:.82rem;color:var(--text-soft);line-height:1.5}
+/* ---------- reveal ---------- */
+#rlApp .rl-reveal{margin-top:16px;padding:18px;border-radius:var(--radius);border:1.5px solid var(--primary);background:var(--primary-soft)}
+#rlApp .rl-reveal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:14px;margin-top:12px}
+#rlApp .rl-reveal-grid dt{font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-reveal-grid dd{margin:3px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:1rem;font-weight:700;color:var(--text);word-break:break-all}
+#rlApp .rl-reveal-timer{font-size:.76rem;font-weight:700;color:var(--muted);margin-top:14px}
+
+/* ---------- tier picker: the same light card language ---------- */
+#rlApp .rl-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-top:6px}
+#rlApp .rl-tier{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--card);
+  border:1.5px solid var(--border-strong);border-radius:var(--radius-lg);overflow:hidden;
+  box-shadow:var(--shadow-sm);cursor:pointer;
+  transition:border-color .18s,box-shadow .18s,transform .14s}
+#rlApp .rl-tier:hover:not(.is-off){transform:translateY(-2px);border-color:var(--primary);box-shadow:var(--shadow)}
+#rlApp .rl-tier:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+#rlApp .rl-tier.is-on{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft),var(--shadow)}
+#rlApp .rl-tier.is-off{opacity:.62;cursor:not-allowed;background:var(--bg-soft)}
+#rlApp .rl-tier.is-off:hover{transform:none;box-shadow:var(--shadow-sm);border-color:var(--border-strong)}
+#rlApp .rl-tier-tick{position:absolute;top:16px;right:16px;width:20px;height:20px;border-radius:50%;
+  border:1.5px solid var(--border-strong);background:var(--bg-soft);display:flex;align-items:center;justify-content:center}
+#rlApp .rl-tier-tick svg{width:11px;height:11px;opacity:0;border-radius:0!important;
+  stroke:#fff;stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:opacity .18s}
+#rlApp .rl-tier.is-on .rl-tier-tick{background:var(--primary);border-color:var(--primary)}
+#rlApp .rl-tier.is-on .rl-tier-tick svg{opacity:1}
+#rlApp .rl-tier-head{padding:16px 18px 0;display:flex;flex-direction:column;gap:5px;padding-right:44px}
+#rlApp .rl-tier-d{font-size:.82rem;font-weight:600;color:var(--text-soft);line-height:1.35}
+#rlApp .rl-tier-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;padding:12px 18px 10px}
+#rlApp .rl-tier-price b{font-size:1.55rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+#rlApp .rl-tier-price s{color:var(--muted);font-size:.88rem}
+#rlApp .rl-tier-price span{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+#rlApp .rl-tier-specs{list-style:none;margin:0;padding:0 18px 16px;font-size:.8rem;color:var(--text-soft);line-height:1.5}
+#rlApp .rl-tier-specs li{padding:4px 0;display:flex;gap:8px;margin:0}
+#rlApp .rl-tier-specs li::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;
+  background:var(--primary);margin-top:.55em}
+#rlApp .rl-tier.is-off .rl-tier-specs li::before{background:var(--muted)}
+#rlApp .rl-tier-foot{margin-top:auto;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg-soft);
+  font-size:.74rem;font-weight:700;color:var(--muted)}
+#rlApp .rl-tier.is-on .rl-tier-foot{color:var(--primary);background:var(--primary-soft)}
+
+/* ---------- deposit ---------- */
+#rlApp .rl-deposit{display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+#rlApp .rl-qr{padding:14px;background:#fff;border:1px solid var(--border);border-radius:var(--radius)}
+#rlApp .rl-qr img{display:block;width:200px;height:200px;border-radius:0!important;border:none}
+#rlApp .rl-ring-wrap{position:relative;width:120px;height:120px}
+#rlApp .rl-ring{width:100%;height:100%;transform:rotate(-90deg)}
+#rlApp .rl-ring-track{fill:none;stroke:var(--bg-softer);stroke-width:8}
+#rlApp .rl-ring-bar{fill:none;stroke:var(--primary);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .95s linear,stroke .3s}
+#rlApp .rl-ring-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#rlApp .rl-ring-time{font-size:1.5rem;font-weight:900;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;animation:none!important}
+#rlApp .rl-ring-lab{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:5px}
+#rlApp .rl-ring-wrap.is-ending .rl-ring-bar{stroke:var(--danger)}
+#rlApp .rl-ring-wrap.is-ending .rl-ring-time{color:var(--danger)}
+#rlApp .rl-dep-facts{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;text-align:left}
+#rlApp .rl-fact{padding:13px 15px;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius-sm)}
+#rlApp .rl-fact dt{font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-fact dd{margin:3px 0 0;font-size:.98rem;font-weight:800;color:var(--text);word-break:break-word}
+#rlApp .rl-fact--min{border-color:var(--warn);background:rgba(245,166,35,.08)}
+
+/* ---------- activity ---------- */
+#rlApp .rl-log{list-style:none;margin:0;padding:0}
+#rlApp .rl-log li{display:flex;align-items:flex-start;gap:14px;padding:14px 2px;border-bottom:1px solid var(--border);margin:0}
+#rlApp .rl-log li:last-child{border-bottom:none}
+#rlApp .rl-log-ic{flex:none;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:900;letter-spacing:.02em;background:var(--bg-softer);color:var(--muted)}
+#rlApp .rl-log-ic.in{background:rgba(0,212,177,.15);color:#0a7d5a}
+#rlApp .rl-log-ic.out{background:var(--primary-soft);color:var(--primary)}
+/* these were inline spans, so the note ran into its date and the amount into
+   its running balance — both are their own block now */
+#rlApp .rl-log-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+#rlApp .rl-log-note{display:block;font-size:.88rem;color:var(--text);font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+#rlApp .rl-log-time{display:block;font-size:.74rem;color:var(--muted);line-height:1.35}
+#rlApp .rl-log-amt{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;
+  text-align:right;font-weight:800;font-variant-numeric:tabular-nums;font-size:.95rem;color:var(--text);
+  white-space:nowrap;padding-left:6px}
+#rlApp .rl-log-amt.in{color:#0a7d5a}
+#rlApp .rl-log-bal{display:block;font-size:.72rem;font-weight:600;color:var(--muted);white-space:nowrap}
+#rlApp .rl-log-pending{opacity:.68}@media(max-width:430px){
+  /* keep the amount on the same row and hard right — wrapping it onto its own
+     line left it floating under the icon instead of lining up with a column */
+  #rlApp .rl-log li{flex-wrap:nowrap;gap:10px}
+  #rlApp .rl-log-ic{width:30px;height:30px;border-radius:9px}
+  #rlApp .rl-log-main{flex:1 1 auto;min-width:0}
+  #rlApp .rl-log-note{font-size:.83rem}
+  #rlApp .rl-log-amt{font-size:.88rem;padding-left:4px}
+  #rlApp .rl-log-bal{font-size:.68rem}
+}
+
+/* ---------- card transactions ---------- */
+#rlApp .rl-tx-sub{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px;margin-top:3px}
+#rlApp .rl-tx-tag{font-size:.63rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  padding:2px 7px;border-radius:999px;background:var(--bg-softer);color:var(--muted);white-space:nowrap}
+#rlApp .rl-tx-tag--ok{background:rgba(0,212,177,.15);color:#0a7d5a}
+#rlApp .rl-tx-tag--warn{background:rgba(245,166,35,.16);color:#9a5b00}
+#rlApp .rl-tx-tag--bad{background:rgba(229,72,77,.12);color:var(--danger)}
+#rlApp .rl-tx-tag--closed{background:rgba(229,72,77,.12);color:var(--danger)}
+#rlApp .rl-tx-meta{font-size:.72rem;color:var(--muted);white-space:nowrap}
+#rlApp .rl-tx-fx{display:block;font-size:.72rem;font-weight:600;color:var(--muted);white-space:nowrap}
+#rlApp .rl-tx-fee{display:block;font-size:.7rem;font-weight:600;color:var(--muted);white-space:nowrap}
+
+/* ---------- steps / how-to ---------- */
+#rlApp .rl-steps{list-style:none;counter-reset:rl;margin:14px 0 0;padding:0}
+#rlApp .rl-steps li{counter-increment:rl;position:relative;padding:0 0 16px 44px;font-size:.88rem;color:var(--text-soft);line-height:1.55}
+#rlApp .rl-steps li::before{content:counter(rl,decimal-leading-zero);position:absolute;left:0;top:-1px;
+  width:28px;height:28px;border-radius:9px;background:var(--primary-soft);color:var(--primary);
+  font-size:.72rem;font-weight:900;display:flex;align-items:center;justify-content:center}
+#rlApp .rl-steps li strong{color:var(--text)}
+#rlApp .rl-choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:4px 0 18px}
+#rlApp .rl-choice button{display:flex;align-items:center;justify-content:center;gap:9px;background:var(--card)!important;
+  color:var(--text)!important;border:1.5px solid var(--border-strong)!important;box-shadow:var(--shadow-sm)!important;
+  border-radius:var(--radius)!important;padding:14px!important;font-weight:800;font-size:.92rem;margin:0!important;cursor:pointer}
+#rlApp .rl-choice button:hover{border-color:var(--primary)!important;color:var(--primary)!important;transform:translateY(-1px)}
+#rlApp .rl-choice button[aria-pressed="true"]{border-color:var(--primary)!important;box-shadow:0 0 0 3px var(--primary-soft)!important}
+#rlApp .rl-choice svg{width:19px;height:19px;flex:none;border-radius:0!important}
+#rlApp .rl-code-out{margin-top:16px;padding:20px;text-align:center;border-radius:var(--radius);
+  border:1.5px solid var(--primary);background:var(--primary-soft)}
+#rlApp .rl-code-cap{font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-code-digits{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:2.1rem;font-weight:900;
+  letter-spacing:.28em;color:var(--text);line-height:1.1;padding-left:.28em;margin-top:6px}
+#rlApp .rl-code-hint{margin:10px 0 0;font-size:.82rem;color:var(--text-soft);line-height:1.45}
+
+/* payment marks on the reloadable welcome screen — the site's own strip,
+   minus PayPal, which this programme does not issue */
+#rlApp .rl-marks{margin:0 0 20px}
+
+/* ---------- info: tiers / mcc / 3ds ---------- */
+#rlApp .rl-info{max-width:860px;margin:34px auto 0}
+#rlApp .rl-acc{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);
+  box-shadow:var(--shadow-sm);margin:0 0 12px;overflow:hidden}
+#rlApp .rl-acc>summary{cursor:pointer;list-style:none;padding:16px 20px;font-weight:800;font-size:.98rem;color:var(--text);
+  display:flex;align-items:center;gap:11px}
+#rlApp .rl-acc>summary::-webkit-details-marker{display:none}
+#rlApp .rl-acc>summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
+  transform:rotate(-45deg);flex:none;margin-left:2px;transition:transform .18s}
+#rlApp .rl-acc[open]>summary::before{transform:rotate(45deg)}
+#rlApp .rl-acc>summary .rl-acc-c{margin-left:auto;font-size:.7rem;font-weight:800;color:var(--muted);
+  background:var(--bg-softer);padding:3px 9px;border-radius:999px;letter-spacing:.03em}
+#rlApp .rl-acc-body{padding:2px 20px 18px;border-top:1px solid var(--border);font-size:.87rem;color:var(--text-soft);line-height:1.6}
+#rlApp .rl-acc-body p{font-size:inherit;color:inherit}
+#rlApp .rl-mccgroup{margin:16px 0 4px;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#rlApp .rl-mcclist{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 20px;margin:0;padding:0;font-size:.8rem}
+#rlApp .rl-mcclist li{padding:3px 0;display:flex;gap:9px;color:var(--text-soft);margin:0}
+#rlApp .rl-mcclist b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--primary);font-weight:600;flex:none}
+#rlApp .rl-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0 4px}
+#rlApp .rl-group{padding:13px 15px;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius-sm)}
+#rlApp .rl-group b{display:block;font-size:.85rem;color:var(--text);margin-bottom:3px}
+#rlApp .rl-group i{font-style:normal;font-size:.66rem;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.05em}
+#rlApp .rl-group p{margin:4px 0 0;font-size:.79rem;color:var(--text-soft);line-height:1.45}
+#rlApp .rl-spec{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:12px 0 0;font-size:.84rem}
+#rlApp .rl-spec dt{font-size:.64rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px;white-space:nowrap}
+#rlApp .rl-spec dd{margin:0;color:var(--text-soft);line-height:1.5}@media(max-width:520px){#rlApp .rl-spec{grid-template-columns:1fr;gap:2px}#rlApp .rl-spec dt{padding-top:9px}}
+#rlApp .rl-hidden{display:none!important}
+/* forms inside the reloadable app are laid out by their panel, not by the
+   site-wide .pg-content form card treatment */
+#rlApp form{background:transparent!important;border:none!important;border-radius:0!important;
+  padding:0!important;box-shadow:none!important;margin:0!important;max-width:none!important}
+#rlApp .copy-text{margin-top:6px}
+#rlApp .copy-text input.text{font-size:.88rem}
+</style>
+</head>
+<body>
+
+<div id="rlApp">
+
+  <!-- ===================== SIGNED OUT ===================== -->
+  <section id="rlGate">
+
+    <div class="rl-panel" id="rlIntro">
+      <h3 class="rl-h">A reloadable card, with no account to sign up for</h3>
+      <p class="rl-sub">No email, no password, no personal details, no KYC. Your account is a single secret string that only you hold. Top it up in crypto, mint a card against the balance, and load that same card again whenever you like.</p>
+
+      <div class="rl-marks" aria-label="Accepted networks and wallets">
+        <svg viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa"><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" fill="#fff"></rect><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" stroke="#e6e9ef"></rect><path fill-rule="evenodd" clip-rule="evenodd" d="M10.7501 15.8579H8.69031L7.14576 9.79198C7.07245 9.51295 6.91679 9.26627 6.68782 9.15001C6.11639 8.85784 5.48672 8.62531 4.7998 8.50804V8.2745H8.11789C8.57583 8.2745 8.91929 8.62531 8.97653 9.03274L9.77793 13.4083L11.8367 8.2745H13.8392L10.7501 15.8579ZM14.984 15.8579H13.0388L14.6406 8.2745H16.5858L14.984 15.8579ZM19.1025 10.3753C19.1597 9.96689 19.5032 9.73335 19.9039 9.73335C20.5336 9.67471 21.2195 9.79199 21.7919 10.0832L22.1354 8.45042C21.5629 8.21688 20.9333 8.09961 20.3619 8.09961C18.4738 8.09961 17.1 9.15002 17.1 10.6078C17.1 11.7169 18.0731 12.2992 18.7601 12.65C19.5032 12.9998 19.7894 13.2334 19.7322 13.5832C19.7322 14.1079 19.1597 14.3414 18.5883 14.3414C17.9014 14.3414 17.2145 14.1665 16.5858 13.8743L16.2424 15.5081C16.9293 15.7992 17.6724 15.9165 18.3594 15.9165C20.4763 15.9741 21.7919 14.9247 21.7919 13.3496C21.7919 11.3661 19.1025 11.2498 19.1025 10.3753ZM28.5998 15.8579L27.0553 8.2745H25.3962C25.0528 8.2745 24.7093 8.50804 24.5948 8.85784L21.7347 15.8579H23.7372L24.1369 14.7498H26.5973L26.8263 15.8579H28.5998ZM25.6824 10.3167L26.2539 13.1747H24.6521L25.6824 10.3167Z" fill="#1434CB"></path></svg>
+        <svg viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mastercard"><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" fill="#fff"></rect><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" stroke="#e6e9ef"></rect><path d="M21.5771 5.03027C25.322 5.03027 28.3584 8.03016 28.3584 11.7305C28.3583 15.4307 25.322 18.4307 21.5771 18.4307C19.8982 18.4306 18.3629 17.8259 17.1787 16.8271C15.9945 17.8258 14.4591 18.4307 12.7803 18.4307C9.03566 18.4304 6.00011 15.4305 6 11.7305C6 8.0303 9.03559 5.0305 12.7803 5.03027C14.459 5.03027 15.9945 5.63435 17.1787 6.63281C18.3629 5.63422 19.8983 5.0303 21.5771 5.03027Z" fill="#ED0006"></path><path d="M21.5771 5.03027C25.322 5.03035 28.3574 8.03021 28.3574 11.7305C28.3573 15.4306 25.3219 18.4306 21.5771 18.4307C19.8982 18.4307 18.3629 17.8258 17.1787 16.8271C18.6359 15.5983 19.5615 13.7718 19.5615 11.7305C19.5615 9.68897 18.6361 7.86171 17.1787 6.63281C18.3629 5.63427 19.8984 5.03027 21.5771 5.03027Z" fill="#F9A000"></path><path d="M17.1787 6.63281C18.6363 7.86171 19.5615 9.68883 19.5615 11.7305C19.5615 13.7719 18.636 15.5983 17.1787 16.8271C15.7217 15.5983 14.7969 13.7716 14.7969 11.7305C14.7969 9.68913 15.7215 7.86171 17.1787 6.63281Z" fill="#FF5E00"></path></svg>
+        <span class="rl-mark-wallet"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98C13.876.74 15.214.04 16.32 0c.03.13.045.28.045.43zM20.93 17.14c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8C3.964 18.38 2.93 15.57 2.93 12.92c0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"></path></svg>Apple&nbsp;Pay</span>
+        <span class="rl-mark-wallet"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>Google&nbsp;Pay</span>
+      </div>
+      <ol class="rl-steps">
+        <li><strong>Create your account.</strong> One click. You are handed a recovery token and a session key — save both, they are the only way back in.</li>
+        <li><strong>Top up in crypto.</strong> Bitcoin, Monero, Litecoin, Ethereum, USDC or USDT. Your balance appears in USD.</li>
+        <li><strong>Mint a card.</strong> Pick Aurora, Shadow or Eclipse. The only requirement is having the balance to cover it.</li>
+        <li><strong>Load it and spend.</strong> Move balance onto the card, reveal the number, and add it to Apple Pay or Google Pay where the card supports it.</li>
+      </ol>
+      <div class="rl-note danger">
+        <p><strong>Read this before you start.</strong> Because there is no email and no identity attached to the account, there is no password reset and no support recovery. If you lose both your token and your session, the balance and every card on the account are gone permanently. Save them somewhere you trust the moment they are shown.</p>
+      </div>
+      <div class="rl-btn-row">
+        <button type="button" class="rl-btn" id="rlSignupBtn">Create my account</button>
+        <button type="button" class="rl-btn rl-btn--ghost" id="rlHaveAccountBtn">I already have an account</button>
+      </div>
+      <div id="rlGateMsg"></div>
+    </div>
+
+    <!-- signup in progress -->
+    <div class="rl-panel rl-hidden" id="rlSignupWait">
+      <div class="rl-wait">
+        <div class="spinner"></div>
+        <div class="rl-wait-title">Securely creating your account</div>
+        <div class="rl-wait-sub" id="rlWaitSub">This can take up to a minute. Keys are being generated and your account provisioned — please keep this page open and do not refresh.</div>
+        <div class="rl-wait-bar"><i></i></div>
+      </div>
+    </div>
+
+    <!-- credentials to save -->
+    <div class="rl-panel rl-hidden" id="rlCredPanel">
+      <h3 class="rl-h">Your account is ready — save these now</h3>
+      <p class="rl-sub">These two values <strong>are</strong> your account. They are shown once and cannot be reissued or recovered by anyone.</p>
+      <div class="rl-cred">
+        <h4>⚠️ Store both in a password manager, or write them down</h4>
+        <p style="margin:0;font-size:.85rem;color:var(--text-soft);line-height:1.5">The <strong>session key</strong> signs you in day to day and is saved in this browser. The <strong>recovery token</strong> is what gets you back in if this browser is cleared or you move to another device — you will need both together.</p>
+
+        <span class="rl-cred-label">Recovery token</span>
+        <div class="copy-text">
+          <input type="text" class="text rl-mono" id="rlCredToken" readonly aria-label="Recovery token">
+          <button type="button" data-copy>Copy</button>
+        </div>
+
+        <span class="rl-cred-label">Session key</span>
+        <div class="copy-text">
+          <input type="text" class="text rl-mono" id="rlCredSession" readonly aria-label="Session key">
+          <button type="button" data-copy>Copy</button>
+        </div>
+
+        <div class="rl-btn-row">
+          <button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" id="rlDownloadCred">⭳ Download backup file</button>
+        </div>
+
+        <label class="rl-ack" for="rlAck">
+          <input type="checkbox" id="rlAck">
+          <span>I have saved my recovery token and session key somewhere safe. I understand they cannot be recovered and that losing them means losing the balance and every card on this account.</span>
+        </label>
+      </div>
+      <div class="rl-btn-row">
+        <button type="button" class="rl-btn" id="rlCredContinue" disabled>Continue to my account</button>
+      </div>
+    </div>
+
+    <!-- sign in in progress -->
+    <div class="rl-panel rl-hidden" id="rlSigninWait">
+      <div class="rl-wait">
+        <div class="spinner"></div>
+        <div class="rl-wait-title">Securely signing you in</div>
+        <div class="rl-wait-sub" id="rlSigninWaitSub">This can take up to a minute. Your account is being unlocked — please keep this page open and do not refresh.</div>
+        <div class="rl-wait-bar"><i></i></div>
+      </div>
+    </div>
+
+    <!-- sign in -->
+    <div class="rl-panel rl-hidden" id="rlSigninPanel">
+      <h3 class="rl-h">Sign back in</h3>
+      <p class="rl-sub">Enter the recovery token and session key you saved when the account was created. If your session has expired a fresh one is issued automatically.</p>
+      <form id="rlSigninForm" autocomplete="off">
+        <label for="rlInToken">Recovery token</label>
+        <input type="text" id="rlInToken" class="rl-mono" placeholder="Paste your recovery token" required>
+        <label for="rlInSession">Session key</label>
+        <input type="text" id="rlInSession" class="rl-mono" placeholder="Paste your session key" required>
+        <div class="rl-btn-row">
+          <button type="submit" class="rl-btn" id="rlSigninBtn">Sign in</button>
+          <button type="button" class="rl-btn rl-btn--ghost" id="rlBackToIntro">Back</button>
+        </div>
+      </form>
+      <div id="rlSigninMsg"></div>
+    </div>
+  </section>
+
+  <!-- ===================== SIGNED IN ===================== -->
+  <section id="rlAccount" hidden>
+
+    <div class="rl-bar">
+      <div>
+        <div class="rl-bal-label">Account balance</div>
+        <div class="rl-bal-value" id="rlBalance">—</div>
+      </div>
+      <div class="rl-bar-actions">
+        <button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" id="rlRefresh">↻ Refresh</button>
+        <button type="button" class="rl-btn rl-btn--danger rl-btn--sm" id="rlSignOut">Sign out</button>
+      </div>
+    </div>
+
+    <div class="rl-tabs" role="tablist" aria-label="Account sections">
+      <button type="button" class="rl-tab" role="tab" data-tab="cards" aria-selected="true">My cards</button>
+      <button type="button" class="rl-tab" role="tab" data-tab="issue" aria-selected="false">Get a card</button>
+      <button type="button" class="rl-tab" role="tab" data-tab="topup" aria-selected="false">Top up</button>
+      <button type="button" class="rl-tab" role="tab" data-tab="activity" aria-selected="false">Activity</button>
+      <button type="button" class="rl-tab" role="tab" data-tab="security" aria-selected="false">Security</button>
+    </div>
+
+    <!-- MY CARDS -->
+    <div class="rl-tabpanel" data-panel="cards">
+      <div id="rlCardsOut"><div class="rl-panel"><div class="rl-wait"><div class="spinner"></div><div class="rl-wait-sub">Loading your cards…</div></div></div></div>
+    </div>
+
+    <!-- GET A CARD -->
+    <div class="rl-tabpanel rl-hidden" data-panel="issue">
+      <div class="rl-panel">
+        <h3 class="rl-h">Mint a new card</h3>
+        <p class="rl-sub">One requirement: balance. The card mints against it — there is nothing else to provide, verify or approve. Prices below are read live from the card programme and can change.</p>
+        <div class="rl-tiers" id="rlTierPicker"></div>
+        <div id="rlIssueMsg"></div>
+        <div class="rl-btn-row">
+          <button type="button" class="rl-btn" id="rlIssueBtn" disabled>Select a card type</button>
+        </div>
+        <div class="rl-note warn">
+          <p><strong>Every card arrives empty.</strong> A new card holds nothing and declines every charge until you load it — minimum <strong>$15.00</strong>. Load it right after minting, and if anything bills it on its own (a subscription, a renewal) keep a little balance riding on it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP UP -->
+    <div class="rl-tabpanel rl-hidden" data-panel="topup">
+      <div class="rl-panel">
+        <h3 class="rl-h">Top up your balance</h3>
+        <p class="rl-sub">Choose a coin and send at least the minimum shown to the address generated for you. Your balance is credited automatically once the transaction confirms.</p>
+        <form id="rlDepositForm" autocomplete="off">
+          <label for="rlTicker">Deposit currency</label>
+          <select id="rlTicker">
+            <option value="btc">Bitcoin (BTC)</option>
+            <option value="xmr">Monero (XMR)</option>
+            <option value="ltc">Litecoin (LTC)</option>
+            <option value="eth">Ethereum (ETH)</option>
+            <option value="erc20/usdc">USDC (Ethereum ERC-20)</option>
+            <option value="erc20/usdt">USDT (Ethereum ERC-20)</option>
+          </select>
+          <div class="rl-btn-row">
+            <button type="submit" class="rl-btn" id="rlDepositBtn">Generate deposit address</button>
+          </div>
+        </form>
+        <div class="rl-note danger">
+          <p><strong>Send the exact coin on the exact network shown, at or above the minimum.</strong> Anything else — a different coin, a different chain, or an amount below the minimum — is permanently lost and cannot be refunded or recovered.</p>
+        </div>
+        <div id="rlDepositOut"></div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY -->
+    <div class="rl-tabpanel rl-hidden" data-panel="activity">
+      <div class="rl-panel">
+        <h3 class="rl-h">Account activity</h3>
+        <p class="rl-sub">Every movement of your account balance: crypto top-ups in, card fees and card loads out.</p>
+        <div id="rlActivityOut"></div>
+      </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="rl-tabpanel rl-hidden" data-panel="security">
+      <div class="rl-panel">
+        <h3 class="rl-h">Two-factor authentication</h3>
+        <p class="rl-sub">Revealing a card number and adding a card to Apple Pay or Google Pay are protected by a six-digit code from an authenticator app on your device.</p>
+        <div id="rlSecurityOut"></div>
+      </div>
+      <div class="rl-panel">
+        <h3 class="rl-h">Your credentials</h3>
+        <p class="rl-sub">Your session key is stored in this browser only. If you have not saved your recovery token yet, there is nothing anyone can do to recover this account later — save it now.</p>
+        <span class="rl-cred-label">Session key in this browser</span>
+        <div class="copy-text">
+          <input type="text" class="text rl-mono" id="rlCurrentSession" readonly aria-label="Current session key">
+          <button type="button" data-copy>Copy</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ALWAYS-ON REFERENCE ===================== -->
+  <div class="rl-info">
+
+    <details class="rl-acc">
+      <summary>The three cards — what each one is for<span class="rl-acc-c">Aurora · Shadow · Eclipse</span></summary>
+      <div class="rl-acc-body">
+        <p style="margin-top:14px">All three mint against your balance and nothing else. Prices are set by the card programme and shown live in <strong>Get a card</strong>.</p>
+
+        <p class="rl-mccgroup" style="margin-top:20px">Aurora — the complete card</p>
+        <p style="margin:0">Apple Pay, Google Pay and tap to pay from the first minute — everywhere cards are taken.</p>
+        <dl class="rl-spec">
+          <dt>Spend power</dt><dd>$50,000 a day · $1,000,000 a month · no per-charge cap — the network's ceilings, not ours</dd>
+          <dt>On the card</dt><dd>Prepaid — the whole balance is spendable, up to $150,000 riding the card</dd>
+          <dt>Loads</dt><dd>From $15 · 5% now on your volume · the ladder eases 5% → 3.5% over your last 30 days</dd>
+          <dt>Currency</dt><dd>Any — a non-USD charge converts at the network's lowest regular rate; we add $0</dd>
+          <dt>Arrives empty</dt><dd>Mints with nothing on it — load it right after</dd>
+          <dt>Keep-alive</dt><dd>$29 of spend a month keeps it yours; three idle months retire it — the balance comes home, the card fee doesn't</dd>
+          <dt>Declines</dt><dd>A declined attempt costs nothing · valid 2+ years, an email before expiry</dd>
+        </dl>
+
+        <p class="rl-mccgroup" style="margin-top:22px">Shadow — the essential card</p>
+        <p style="margin:0">Every online checkout, Google Pay from the card page, 3-D Secure approved for you — works everywhere cards are taken.</p>
+        <dl class="rl-spec">
+          <dt>Spend power</dt><dd>$50,000 a day · $1,000,000 a month · no per-charge cap — the network's ceilings, not ours</dd>
+          <dt>On the card</dt><dd>Prepaid — the whole balance is spendable, up to $150,000 riding the card</dd>
+          <dt>Loads</dt><dd>From $15 · 5% now on your volume · the ladder eases 5% → 3.5% over your last 30 days</dd>
+          <dt>Currency</dt><dd>Any — a non-USD charge converts at the network's lowest regular rate; we add $0</dd>
+          <dt>Arrives empty</dt><dd>Mints with nothing on it — load it right after</dd>
+          <dt>Keep-alive</dt><dd>$29 of spend a month keeps it yours; three idle months retire it — the balance comes home, the card fee doesn't</dd>
+          <dt>Declines</dt><dd>A declined attempt costs nothing · valid 2+ years, an email before expiry</dd>
+        </dl>
+
+        <p class="rl-mccgroup" style="margin-top:22px">Eclipse — the ad card</p>
+        <p style="margin:0">Built for media spend — Meta, Google Ads, TikTok, X — and the software, cloud and digital tools a campaign leans on clear too. Only gambling, cash and money transfer stay closed.</p>
+        <dl class="rl-spec">
+          <dt>Spend power</dt><dd>$25,000 a day · $500,000 a month · $25,000 per charge — the network's ceilings, not ours</dd>
+          <dt>On the card</dt><dd>Prepaid — the whole balance is spendable, up to $150,000 riding the card</dd>
+          <dt>Loads</dt><dd>From $15 · 3.5%, easing to 2.5% as your last-30-days Eclipse volume grows</dd>
+          <dt>Currency</dt><dd>Any — a non-USD charge converts at the network's lowest regular rate; we add $0</dd>
+          <dt>Arrives empty</dt><dd>Mints with nothing on it — load it right after</dd>
+          <dt>Keep-alive</dt><dd>$29 of spend a month keeps it yours; three idle months retire it — the balance comes home, the card fee doesn't</dd>
+          <dt>Declines</dt><dd>A declined attempt costs $0.25, the network's fee passed through at cost · valid 2+ years, an email before expiry</dd>
+        </dl>
+      </div>
+    </details>
+
+    <details class="rl-acc">
+      <summary>3-D Secure is approved for you<span class="rl-acc-c">Nothing to type</span></summary>
+      <div class="rl-acc-body">
+        <ol class="rl-steps" style="margin-top:16px">
+          <li>Some checkouts open an extra verification page with a five-minute timer.</li>
+          <li><strong>Leave that page open and let the timer run.</strong> Nothing to type, nothing to find.</li>
+          <li>Approval is automatic and usually lands within two minutes. Don't worry.</li>
+          <li>If the timer somehow runs out unapproved, just retry the payment once.</li>
+        </ol>
+        <div class="rl-note"><p><strong>Approved automatically.</strong> When a checkout opens a 3-D Secure page, just leave it open and let its timer run. We approve it for you automatically, usually within about two minutes, well inside the five-minute window. There's no code to fetch and nothing to type here.</p></div>
+      </div>
+    </details>
+
+    <details class="rl-acc">
+      <summary>Closed merchant categories<span class="rl-acc-c">57 codes</span></summary>
+      <div class="rl-acc-body">
+        <p style="margin-top:14px">The issuer closes these merchant types at the network level: every cut, any balance. A charge there fails no matter what the card holds, and repeat attempts get the card itself flagged — so the card shields itself: a warning first, then a lock.</p>
+        <div class="rl-note danger"><p><strong>Blocking runs on the merchant's registered category code (MCC): the label on the door decides, not what's in the basket.</strong> The first charge at any of these declines and draws a warning; another within a month locks the card. Unlock is self-serve, once a month, and a closed-category charge after an unlock retires the card for good — balance back to your wallet, card fee not refunded.</p></div>
+
+        <div class="rl-groups">
+          <div class="rl-group"><i>10 codes</i><b>Airlines (legacy codes)</b><p>A block of legacy carrier merchant codes the issuer closes wholesale. Book flights through a travel site or agent instead.</p></div>
+          <div class="rl-group"><i>34 codes</i><b>Casinos &amp; gaming venues</b><p>Named casino and casino-hotel properties: floor charges, chips and cages decline, online or in person.</p></div>
+          <div class="rl-group"><i>5 codes</i><b>Gambling &amp; betting</b><p>Lotteries, licensed online casinos, sportsbooks and race betting, online or at the counter.</p></div>
+          <div class="rl-group"><i>2 codes</i><b>Cash withdrawal</b><p>ATMs and bank cash-out desks: manual and automated cash disbursements.</p></div>
+          <div class="rl-group"><i>3 codes</i><b>Restricted retail</b><p>Pawn shops, antique reproductions, inbound teleservice sellers.</p></div>
+          <div class="rl-group"><i>2 codes</i><b>Political &amp; religious</b><p>Political organisations and religious organisations.</p></div>
+          <div class="rl-group"><i>1 code</i><b>Automated fuel pumps</b><p>Pay-at-the-pump fuel dispensers, where the pre-authorisation and final amount differ. Pay inside at the kiosk instead.</p></div>
+        </div>
+
+        <details class="rl-acc" style="margin-top:18px;box-shadow:none">
+          <summary>Every code on the list<span class="rl-acc-c">57 codes</span></summary>
+          <div class="rl-acc-body">
+            <p class="rl-mccgroup">Airlines (legacy codes)</p>
+            <ul class="rl-mcclist">
+              <li><b>3011</b> Aeroflot</li><li><b>3013</b> Alitalia</li><li><b>3016</b> SAS</li><li><b>3018</b> Varig (Brazil)</li><li><b>3023</b> Mexicana</li><li><b>3027</b> UTA/Interair</li><li><b>3031</b> Olympic Airways</li><li><b>3033</b> Ansett Airlines</li><li><b>3036</b> VASP (Brazil)</li><li><b>3041</b> Balkan-Bulgarian Airlines</li>
+            </ul>
+            <p class="rl-mccgroup">Casinos &amp; gaming venues</p>
+            <ul class="rl-mcclist">
+              <li><b>3551</b> Mirage Hotel and Casino</li><li><b>3555</b> Treasure Island Hotel and Casino</li><li><b>3560</b> Aladdin Resort and Casino</li><li><b>3564</b> Sam's Town Hotel and Casino</li><li><b>3582</b> California Hotel and Casino</li><li><b>3597</b> Riverside Resort Hotel and Casino</li><li><b>3620</b> Binion's Horseshoe Club</li><li><b>3624</b> Lady Luck Hotel and Casino</li><li><b>3628</b> Excalibur Hotel and Casino</li><li><b>3662</b> Circus Circus Hotel and Casino</li><li><b>3667</b> Luxor Hotel and Casino</li><li><b>3669</b> Eldorado Hotel and Casino</li><li><b>3676</b> Monte Carlo Hotel and Casino</li><li><b>3679</b> Silver Legacy Hotel and Casino</li><li><b>3682</b> Sahara Hotel and Casino</li><li><b>3708</b> Virgin River Hotel and Casino</li><li><b>3712</b> Buffalo Bill's Hotel and Casino</li><li><b>3728</b> Bally's Hotel and Casino</li><li><b>3731</b> Harrah's Hotels and Casinos</li><li><b>3737</b> Riviera Hotel and Casino</li><li><b>3738</b> Tropicana Resort &amp; Casino</li><li><b>3761</b> Primadonna Hotel and Casino</li><li><b>3762</b> Whiskey Pete's Hotel and Casino</li><li><b>3764</b> Beau Rivage Hotel and Casino</li><li><b>3766</b> Fremont Hotel and Casino</li><li><b>3767</b> Main Street Station Hotel and Casino</li><li><b>3768</b> Silver Star Hotel and Casino</li><li><b>3769</b> Stratosphere Hotel and Casino</li><li><b>3771</b> Caesar's Hotel and Casino</li><li><b>3773</b> The Venetian Resort Hotel Casino</li><li><b>3774</b> New York-New York Hotel and Casino</li><li><b>3792</b> Claridge Casino Hotel</li><li><b>3794</b> Grand Casino Hotels</li><li><b>3796</b> Peppermill Hotel Casino</li>
+            </ul>
+            <p class="rl-mccgroup">Gambling &amp; betting</p>
+            <ul class="rl-mcclist">
+              <li><b>7800</b> Government-Owned Lotteries (US region only)</li><li><b>7801</b> Government-Licensed On-Line Casinos (US region only)</li><li><b>7802</b> Government-Licensed Horse/Dog Racing (US region only)</li><li><b>7995</b> Betting — lottery tickets, casino chips, off-track betting, wagers</li><li><b>9406</b> Government-Owned Lotteries (non-US region)</li>
+            </ul>
+            <p class="rl-mccgroup">Cash withdrawal</p>
+            <ul class="rl-mcclist">
+              <li><b>6010</b> Financial Institutions — Manual Cash Disbursements</li><li><b>6011</b> Financial Institutions — Automated Cash Disbursements</li>
+            </ul>
+            <p class="rl-mccgroup">Restricted retail</p>
+            <ul class="rl-mcclist">
+              <li><b>5933</b> Pawn Shops</li><li><b>5937</b> Antique Reproductions</li><li><b>5967</b> Direct Marketing — Inbound Teleservices Merchant</li>
+            </ul>
+            <p class="rl-mccgroup">Political &amp; religious</p>
+            <ul class="rl-mcclist">
+              <li><b>8651</b> Political Organizations</li><li><b>8661</b> Religious Organizations</li>
+            </ul>
+            <p class="rl-mccgroup">Automated fuel pumps</p>
+            <ul class="rl-mcclist">
+              <li><b>5542</b> Gas stations — pay-at-the-pump dispensers</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="rl-acc">
+      <summary>API documentation<span class="rl-acc-c">Build your own</span></summary>
+      <div class="rl-acc-body">
+        <p style="margin-top:14px">Every endpoint used on this page is public, needs no API key and is documented in full, including the affiliate and sub-affiliate deposit endpoints for earning commission on top-ups made through your own integration.</p>
+        <a class="pg-apidocs-card" href="https://paygate.to/docs/virtual-credit-cards-api/reloadable/" target="_blank" rel="noopener">
+          <span class="pg-apidocs-ico">
+            <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="8" y="6" width="40" height="44" rx="9" fill="url(#pgApiGradRl)"></rect>
+              <path d="M21 24l-5 5 5 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M35 24l5 5-5 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M31 20l-6 18" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path>
+              <defs><linearGradient id="pgApiGradRl" x1="8" y1="6" x2="48" y2="50" gradientUnits="userSpaceOnUse"><stop stop-color="#635bff"></stop><stop offset="1" stop-color="#4b45cc"></stop></linearGradient></defs>
+            </svg>
+          </span>
+          <span class="pg-apidocs-body">
+            <span class="pg-apidocs-title">Read the Reloadable Virtual Cards API docs</span>
+            <span class="pg-apidocs-desc">Sign up, deposits, minting, loading, TOTP reveal and wallet provisioning — with example responses.</span>
+          </span>
+          <svg class="pg-apidocs-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </a>
+      </div>
+    </details>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =======================================================================
+     CONFIGURATION — the only part you need to touch.
+     ======================================================================= */
+  var CONFIG = {
+
+    /* API host. Leave as-is unless you run your own mirror. */
+    HOST: "https://api.paygate.to",
+
+    /* ---------------------------------------------------------------------
+       OPTIONAL — affiliate commission on top-ups.
+
+       Leave `affiliate` empty and the widget calls the plain deposit endpoint
+       with no commission, exactly like the rest of this repository.
+
+       Fill it in and every top-up made through your copy of this page pays you
+       an instant percentage. The wallet MUST be on the same chain as the coin
+       the customer picks, so wallets are keyed by ticker. Any coin you leave
+       blank simply falls back to the plain endpoint rather than failing.
+       --------------------------------------------------------------------- */
+    affiliate: {
+      // btc:           "1FTpXfNvv1obYpLLFHHh8eEK2vaLwFTHQ2",
+      // xmr:           "4...",
+      // ltc:           "L...",
+      // eth:           "0xYourEvmWallet",     // also covers erc20/usdc + erc20/usdt
+      // "erc20/usdc":  "0x...",               // optional per-token override
+      // "erc20/usdt":  "0x..."
+    },
+    affiliate_fee: "",          /* decimal fraction, e.g. "0.075" for 7.5% */
+
+    /* OPTIONAL — run your own affiliate programme on top. Same rules: the
+       wallet must match the chain, and both fees are decimal fractions. */
+    sub_affiliate: {},
+    sub_affiliate_fee: "",
+
+    /* Where the session key is kept in the customer's browser. */
+    cookieName: "pg_rl_session",
+    cookieDays: 30,
+
+    /* Fetch coin logos for the deposit selector from the public coin index.
+       Fails silently and degrades to plain text if it cannot load. */
+    showCoinLogos: true
+  };
+
+  /* ---------------------------------------------------------------- config */
+  var HOST      = CONFIG.HOST;
+  var API       = HOST + "/crypto/cards/reloadable/";
+  var COIN_API  = HOST + "/crypto/";            /* {ticker}/cards/reloadable/… */
+  var INFO_API  = HOST + "/crypto/info.php";
+  var COOKIE    = CONFIG.cookieName;
+  var MIN_LOAD   = 1500;                         /* $15.00, in cents */
+  var MIN_UNLOAD = 1500;                         /* the same floor applies coming back off a card */
+  var SIGNUP_TIMEOUT = 95000;                    /* signup is slow by design */
+  var SIGNIN_TIMEOUT = 95000;                    /* signin does the same work and can be just as slow */
+
+  var TIER_BLURB = {
+    aurora:  "The complete card",
+    shadow:  "The essential card",
+    eclipse: "The ad card"
+  };
+  var TIER_SPECS = {
+    aurora: ["Apple Pay, Google Pay and tap to pay from the first minute",
+             "$50,000 a day · $1,000,000 a month · no per-charge cap",
+             "Loads from $15 · 5% easing to 3.5% on your last 30 days",
+             "A declined attempt costs nothing"],
+    shadow: ["Every online checkout · Google Pay from the card page",
+             "$50,000 a day · $1,000,000 a month · no per-charge cap",
+             "Loads from $15 · 5% easing to 3.5% on your last 30 days",
+             "3-D Secure approved for you, automatically"],
+    eclipse:["Built for media spend — Meta, Google Ads, TikTok, X",
+             "$25,000 a day · $500,000 a month · $25,000 per charge",
+             "Loads from $15 · 3.5% easing to 2.5% on Eclipse volume",
+             "A declined attempt costs $0.25, passed through at cost"]
+  };
+  var TIER_ORDER = ["aurora", "shadow", "eclipse"];
+
+
+  /* Issuer brand marks, used verbatim; their CSS variables are given values on
+     #rlApp so they sit correctly inside our light card. */
+  var SVG_VISA =
+    '<svg width="34" height="20" viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" fill="var(--table_bg)"></rect><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" stroke="var(--border_primary)"></rect><path fill-rule="evenodd" clip-rule="evenodd" d="M10.7501 15.8579H8.69031L7.14576 9.79198C7.07245 9.51295 6.91679 9.26627 6.68782 9.15001C6.11639 8.85784 5.48672 8.62531 4.7998 8.50804V8.2745H8.11789C8.57583 8.2745 8.91929 8.62531 8.97653 9.03274L9.77793 13.4083L11.8367 8.2745H13.8392L10.7501 15.8579ZM14.984 15.8579H13.0388L14.6406 8.2745H16.5858L14.984 15.8579ZM19.1025 10.3753C19.1597 9.96689 19.5032 9.73335 19.9039 9.73335C20.5336 9.67471 21.2195 9.79199 21.7919 10.0832L22.1354 8.45042C21.5629 8.21688 20.9333 8.09961 20.3619 8.09961C18.4738 8.09961 17.1 9.15002 17.1 10.6078C17.1 11.7169 18.0731 12.2992 18.7601 12.65C19.5032 12.9998 19.7894 13.2334 19.7322 13.5832C19.7322 14.1079 19.1597 14.3414 18.5883 14.3414C17.9014 14.3414 17.2145 14.1665 16.5858 13.8743L16.2424 15.5081C16.9293 15.7992 17.6724 15.9165 18.3594 15.9165C20.4763 15.9741 21.7919 14.9247 21.7919 13.3496C21.7919 11.3661 19.1025 11.2498 19.1025 10.3753ZM28.5998 15.8579L27.0553 8.2745H25.3962C25.0528 8.2745 24.7093 8.50804 24.5948 8.85784L21.7347 15.8579H23.7372L24.1369 14.7498H26.5973L26.8263 15.8579H28.5998ZM25.6824 10.3167L26.2539 13.1747H24.6521L25.6824 10.3167Z" fill="var(--visa_text)"></path></svg>';
+  var SVG_MASTERCARD =
+    '<svg width="34" height="24" viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" fill="var(--table_bg)"></rect><rect x="0.5" y="0.5" width="33" height="23" rx="3.5" stroke="var(--border_primary)"></rect><path d="M21.5771 5.03027C25.322 5.03027 28.3584 8.03016 28.3584 11.7305C28.3583 15.4307 25.322 18.4307 21.5771 18.4307C19.8982 18.4306 18.3629 17.8259 17.1787 16.8271C15.9945 17.8258 14.4591 18.4307 12.7803 18.4307C9.03566 18.4304 6.00011 15.4305 6 11.7305C6 8.0303 9.03559 5.0305 12.7803 5.03027C14.459 5.03027 15.9945 5.63435 17.1787 6.63281C18.3629 5.63422 19.8983 5.0303 21.5771 5.03027Z" fill="#ED0006"></path><path d="M21.5771 5.03027C25.322 5.03035 28.3574 8.03021 28.3574 11.7305C28.3573 15.4306 25.3219 18.4306 21.5771 18.4307C19.8982 18.4307 18.3629 17.8258 17.1787 16.8271C18.6359 15.5983 19.5615 13.7718 19.5615 11.7305C19.5615 9.68897 18.6361 7.86171 17.1787 6.63281C18.3629 5.63427 19.8984 5.03027 21.5771 5.03027Z" fill="#F9A000"></path><path d="M17.1787 6.63281C18.6363 7.86171 19.5615 9.68883 19.5615 11.7305C19.5615 13.7719 18.636 15.5983 17.1787 16.8271C15.7217 15.5983 14.7969 13.7716 14.7969 11.7305C14.7969 9.68913 15.7215 7.86171 17.1787 6.63281Z" fill="#FF5E00"></path></svg>';
+
+  /* The programme's closed merchant categories, so a transaction at one can be
+     flagged on the customer's statement instead of looking like a plain decline. */
+  var CLOSED_MCC = {};
+  ("3011 3013 3016 3018 3023 3027 3031 3033 3036 3041 3551 3555 3560 3564 3582 3597 3620 3624 " +
+   "3628 3662 3667 3669 3676 3679 3682 3708 3712 3728 3731 3737 3738 3761 3762 3764 3766 3767 " +
+   "3768 3769 3771 3773 3774 3792 3794 3796 5542 5933 5937 5967 6010 6011 7800 7801 7802 7995 " +
+   "8651 8661 9406").split(" ").forEach(function (c) { CLOSED_MCC[c] = true; });
+
+  var TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+  var SVG_APPLE =
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98C13.876.74 15.214.04 16.32 0c.03.13.045.28.045.43zM20.93 17.14c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8C3.964 18.38 2.93 15.57 2.93 12.92c0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"></path></svg>';
+  var SVG_GOOGLE =
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>';
+
+  /* ------------------------------------------------------------- utilities */
+  var $  = function (id) { return document.getElementById(id); };
+  var on = function (el, ev, fn) { if (el) el.addEventListener(ev, fn); };
+
+  function esc(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function usd(cents) {
+    var n = Math.abs(Math.round(Number(cents) || 0)) / 100;
+    var p = n.toFixed(2).split(".");
+    return (Number(cents) < 0 ? "-$" : "$") +
+           p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + p[1];
+  }
+  function when(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric",
+                                         hour: "2-digit", minute: "2-digit" });
+  }
+  function show(el, yes) { if (el) el.classList.toggle("rl-hidden", !yes); }
+
+  function tierKey(t) {
+    t = String(t || "").toLowerCase();
+    return TIER_ORDER.indexOf(t) !== -1 ? t : "default";
+  }
+  function brandMark(network) {
+    var n = String(network || "").toLowerCase();
+    if (n === "visa") return '<span class="rl-brand">' + SVG_VISA + "</span>";
+    if (n === "mastercard") return '<span class="rl-brand">' + SVG_MASTERCARD + "</span>";
+    return n ? '<span class="rl-brand rl-tier-pill rl-pill--default">' + esc(network) + "</span>" : "";
+  }
+  /* A charge abroad carries its original amount in the merchant's currency. */
+  function fxMoney(cents, code) {
+    var n = (Number(cents) || 0) / 100;
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: code }).format(n);
+    } catch (e) {
+      return n.toFixed(2) + " " + String(code || "").toUpperCase();
+    }
+  }
+
+
+  /* cookie — session only. The recovery token is never stored by us. */
+  function setCookie(v, days) {
+    var bits = [COOKIE + "=" + encodeURIComponent(v), "path=/", "SameSite=Lax",
+                "max-age=" + (days ? days * 86400 : 0)];
+    if (location.protocol === "https:") bits.push("Secure");
+    document.cookie = bits.join("; ");
+  }
+  function getCookie() {
+    var m = document.cookie.match(new RegExp("(?:^|; )" + COOKIE + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
+  /* Own clipboard helper: this file must not depend on anything the host page
+     happens to define, and must not define a global of its own either. */
+  function wireCopy(scope) {
+    Array.prototype.forEach.call((scope || document).querySelectorAll("[data-copy]"), function (btn) {
+      if (btn.getAttribute("data-copy-wired")) return;
+      btn.setAttribute("data-copy-wired", "1");
+      on(btn, "click", function () {
+        var box = btn.closest(".copy-text");
+        var input = box && box.querySelector("input");
+        if (!input) return;
+        var done = function () {
+          box.classList.add("is-copied");
+          setTimeout(function () { box.classList.remove("is-copied"); }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(input.value).then(done, function () {});
+        }
+        try { input.select(); document.execCommand("copy"); done(); } catch (e) {}
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------ networking */
+  function req(url, opts) {
+    opts = opts || {};
+    var ctl = ("AbortController" in window) ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, opts.timeout || 30000);
+    return fetch(url, { headers: { Accept: "application/json" }, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        return r.text().then(function (t) {
+          var d = null;
+          try { d = t ? JSON.parse(t) : null; } catch (e) { d = null; }
+          if (!r.ok && !d) { var err = new Error("HTTP " + r.status); err.status = r.status; throw err; }
+          return d || {};
+        });
+      })
+      .finally(function () { clearTimeout(timer); });
+  }
+  /* The recovery token is handed to us already percent-encoded and must travel
+     back byte-for-byte. Running encodeURIComponent over it would turn its %2B
+     and %3D into %252B and %253D, and the sign-in would be rejected — so these
+     keys are passed through verbatim. */
+  var RAW_PARAMS = { token: true };
+
+  function q(params) {
+    return Object.keys(params).filter(function (k) { return params[k] !== undefined && params[k] !== null && params[k] !== ""; })
+      .map(function (k) {
+        var v = String(params[k]);
+        return encodeURIComponent(k) + "=" + (RAW_PARAMS[k] ? v : encodeURIComponent(v));
+      }).join("&");
+  }
+  function call(file, params) { return req(API + file + "?" + q(params || {})); }
+
+  /* ----------------------------------------------------------------- state */
+  var S = {
+    session: "",
+    balanceCents: 0,
+    cards: [],
+    catalog: null,     /* the non-card part of the list-cards response */
+    pickedTier: null,
+    depositTimer: null,
+    revealTimer: null,
+    walletPoll: null
+  };
+
+  /* ================================= START ================================= */
+  /* Standalone page: there is no mode switch to wait for, so boot immediately. */
+
+  /* ================================= BOOT ================================= */
+
+  function boot() {
+    wireCopy(document.getElementById("rlApp"));
+    var s = getCookie();
+    if (!s) { gate("intro"); return; }
+    S.session = s;
+    call("session.php", { session: s })
+      .then(function (d) {
+        if (typeof d.balanceCents !== "number") throw new Error("invalid_session");
+        S.balanceCents = d.balanceCents;
+        enterAccount();
+      })
+      .catch(function () { setCookie("", 0); S.session = ""; gate("intro", "Your session has expired. Sign back in with your recovery token."); });
+  }
+
+  /* ============================== SIGNED OUT ============================== */
+
+  function gate(view, message) {
+    $("rlGate").hidden = false;
+    $("rlAccount").hidden = true;
+    show($("rlIntro"),        view === "intro");
+    show($("rlSignupWait"),   view === "wait");
+    show($("rlCredPanel"),    view === "cred");
+    if (view === "signinwait" && $("rlSigninWaitSub"))
+      $("rlSigninWaitSub").textContent =
+        "This can take up to a minute. Your account is being unlocked — " +
+        "please keep this page open and do not refresh.";
+    show($("rlSigninWait"),   view === "signinwait");
+    show($("rlSigninPanel"),  view === "signin");
+    $("rlGateMsg").innerHTML = message ? '<div class="rl-err">' + esc(message) + "</div>" : "";
+    $("rlSigninMsg").innerHTML = "";
+  }
+
+  on($("rlHaveAccountBtn"), "click", function () { gate("signin"); });
+  on($("rlBackToIntro"),    "click", function () { gate("intro"); });
+
+  /* --- sign up: browser side, slow, retried exactly once --- */
+  on($("rlSignupBtn"), "click", function () {
+    gate("wait");
+    var sub = $("rlWaitSub");
+
+    function attempt() {
+      return req(API + "signup.php", { timeout: SIGNUP_TIMEOUT }).then(function (d) {
+        if (!d || !d.token || !d.session) throw new Error("malformed");
+        return d;
+      });
+    }
+
+    attempt()
+      .catch(function () {
+        /* One retry only — this endpoint is heavily rate limited. */
+        sub.textContent = "Still working — retrying once. This can take up to a minute. " +
+                          "Please keep this page open and do not refresh.";
+        return attempt();
+      })
+      .then(function (d) {
+        S.session = d.session;
+        $("rlCredToken").value = d.token;
+        $("rlCredSession").value = d.session;
+        $("rlAck").checked = false;
+        $("rlCredContinue").disabled = true;
+        $("rlDownloadCred").dataset.token = d.token;
+        $("rlDownloadCred").dataset.session = d.session;
+        gate("cred");
+      })
+      .catch(function () {
+        gate("intro", "We could not create your account just now. This endpoint is rate limited — " +
+                      "please wait a few minutes and try again.");
+      });
+  });
+
+  on($("rlAck"), "change", function () { $("rlCredContinue").disabled = !this.checked; });
+
+  on($("rlDownloadCred"), "click", function () {
+    var t = this.dataset.token || "", s = this.dataset.session || "";
+    var body =
+      "PayGate.to — Reloadable Virtual Card account\r\n" +
+      "Created: " + new Date().toISOString() + "\r\n\r\n" +
+      "RECOVERY TOKEN:\r\n" + t + "\r\n\r\n" +
+      "SESSION KEY:\r\n" + s + "\r\n\r\n" +
+      "Keep this file private. Anyone holding these values controls the account,\r\n" +
+      "its balance and its cards. They cannot be reissued or recovered — if you\r\n" +
+      "lose them, the account is gone.\r\n";
+    var url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = "paygate-reloadable-card-recovery.txt";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+
+  on($("rlCredContinue"), "click", function () {
+    setCookie(S.session, 30);
+    enterAccount();
+  });
+
+  /* --- sign in --- */
+  /* Recovering a session does the same cryptographic work as creating one, so
+     it can take just as long. It gets the same treatment as sign up: a blocking
+     wait panel with honest copy, and exactly one retry — never a loop, because
+     this endpoint is rate limited too. */
+  on($("rlSigninForm"), "submit", function (e) {
+    e.preventDefault();
+    var token = $("rlInToken").value.trim(), sess = $("rlInSession").value.trim();
+    if (!token || !sess) return;
+
+    gate("signinwait");
+
+    function attempt() {
+      /* Built through q() so the already-encoded token is passed verbatim. */
+      return req(API + "signin.php?" + q({ token: token, session: sess }), { timeout: SIGNIN_TIMEOUT })
+        .then(function (d) {
+          if (!d || !d.session) throw new Error("signin_failed");
+          return d;
+        });
+    }
+
+    attempt()
+      .catch(function () {
+        /* One retry only. */
+        $("rlSigninWaitSub").textContent =
+          "Still working — retrying once. This can take up to a minute. " +
+          "Please keep this page open and do not refresh.";
+        return attempt();
+      })
+      .then(function (d) {
+        S.session = d.session;          /* a fresh session may be issued here */
+        setCookie(d.session, 30);
+        /* A hiccup fetching the balance must not be reported as bad credentials. */
+        return call("session.php", { session: d.session })
+          .catch(function () { return {}; })
+          .then(function (b) {
+            S.balanceCents = (b && typeof b.balanceCents === "number") ? b.balanceCents : 0;
+            enterAccount();
+          });
+      })
+      .catch(function () {
+        gate("signin");                 /* the pasted values are left in place */
+        $("rlSigninMsg").innerHTML = '<div class="rl-err">Those credentials were not accepted. ' +
+          'Check that the recovery token was pasted in full, exactly as it was given to you — ' +
+          'including any %2B, %2F or %3D characters.</div>';
+      });
+  });
+
+  /* ============================== SIGNED IN ============================== */
+
+  function enterAccount() {
+    /* Leave no stale wait panel behind inside the gate, so reopening it later
+       (a sign out) cannot flash the spinner. */
+    show($("rlSigninWait"), false);
+    $("rlGate").hidden = true;
+    $("rlAccount").hidden = false;
+    $("rlCurrentSession").value = S.session;
+    initCoinLogos();
+    paintBalance();
+    /* Straight after sign up we have a session but have never asked for the
+       balance, so fetch it here rather than showing a stale $0.00. */
+    refreshBalance();
+    refreshCards();
+  }
+
+  on($("rlSignOut"), "click", function () {
+    if (!window.confirm("Sign out on this browser?\n\nYour session key is removed from this device. " +
+                        "You will need your recovery token and session key to sign back in.")) return;
+    setCookie("", 0);
+    S.session = ""; S.cards = []; S.catalog = null; S.balanceCents = 0;
+    stopDepositTimer(); stopWalletPoll();
+    gate("intro");
+  });
+
+  on($("rlRefresh"), "click", function () { refreshAll(); });
+
+  function paintBalance() { $("rlBalance").textContent = usd(S.balanceCents); }
+
+  function refreshBalance() {
+    return call("session.php", { session: S.session }).then(function (d) {
+      if (typeof d.balanceCents === "number") { S.balanceCents = d.balanceCents; paintBalance(); }
+      return d;
+    }).catch(function () {});
+  }
+  function refreshAll() { return Promise.all([refreshBalance(), refreshCards()]); }
+
+  /* --- tabs --- */
+  Array.prototype.forEach.call(document.querySelectorAll("#rlAccount .rl-tab"), function (t) {
+    on(t, "click", function () {
+      var name = t.getAttribute("data-tab");
+      Array.prototype.forEach.call(document.querySelectorAll("#rlAccount .rl-tab"), function (x) {
+        x.setAttribute("aria-selected", String(x === t));
+      });
+      Array.prototype.forEach.call(document.querySelectorAll("#rlAccount .rl-tabpanel"), function (p) {
+        show(p, p.getAttribute("data-panel") === name);
+      });
+      if (name === "activity") renderActivity();
+      if (name === "security") renderSecurity();
+      if (name === "issue")    renderTiers();
+    });
+  });
+
+  /* =============================== MY CARDS =============================== */
+
+  function refreshCards() {
+    return call("list-cards.php", { session: S.session })
+      .then(function (d) {
+        if (!d || !d.ok) throw new Error(d && d.error ? d.error : "list_failed");
+        S.cards = d.cards || [];
+        S.catalog = d;
+        renderCards();
+        renderTiers();
+      })
+      .catch(function () {
+        $("rlCardsOut").innerHTML =
+          '<div class="rl-panel"><div class="rl-err">We could not load your cards just now. ' +
+          'Check your connection and press Refresh.</div></div>';
+      });
+  }
+
+  function walletMarks(c) {
+    var edition = S.catalog && S.catalog.walletEdition && S.catalog.walletEdition.enabled;
+    if (!edition || !c.walletEligible) return "";
+    return '<span class="rl-wallets" title="Apple Pay and Google Pay supported">' + SVG_APPLE + SVG_GOOGLE + "</span>";
+  }
+
+  function lockChips(c) {
+    var out = "";
+    if (c.status === "issuing")
+      out += '<span class="rl-chip rl-chip--info">Issuing</span>';
+    else if (!c.funded)
+      out += '<span class="rl-chip rl-chip--warn">Not activated</span>';
+    else
+      out += '<span class="rl-chip rl-chip--ok">Active</span>';
+
+    [["nsfLockState", "Insufficient-funds lock"], ["mccLockState", "Closed-category lock"],
+     ["tapLockState", "Contactless lock"], ["abuseLockState", "Protection lock"]].forEach(function (p) {
+      var v = c[p[0]];
+      if (v && v !== "none") out += '<span class="rl-chip rl-chip--bad">' + esc(p[1]) + ": " + esc(v) + "</span>";
+    });
+    if (c.consecutiveDeclines > 0)
+      out += '<span class="rl-chip rl-chip--warn">' + c.consecutiveDeclines + " decline" +
+             (c.consecutiveDeclines > 1 ? "s" : "") + " in a row</span>";
+    if (c.mccMode === "deny" && c.mccCount)
+      out += '<span class="rl-chip rl-chip--info">' + c.mccCount + " closed categories</span>";
+    return out;
+  }
+
+  function cardHTML(c) {
+    var tier = tierKey(c.tier);
+    var pan = c.last4 ? "•••• •••• •••• " + esc(c.last4) : "•••• •••• •••• ••••";
+    var expiry = (c.expMonth && c.expYear)
+      ? String(c.expMonth).padStart(2, "0") + "/" + String(c.expYear).slice(-2) : "——/——";
+    var billing = c.billing
+      ? [c.billing.address, c.billing.city, c.billing.zip, c.billing.country].filter(Boolean).join(", ")
+      : (c.billingCountryOnly || "");
+
+    var actions = "";
+    if (c.status === "active") {
+      actions += '<button type="button" class="rl-btn rl-btn--sm" data-act="load" data-id="' + esc(c.id) + '">Load</button>';
+      if (c.funded) {
+        actions += '<button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" data-act="reveal" data-id="' + esc(c.id) + '">Reveal number</button>';
+        /* Unload has the same $15 floor as load, so it is only offered once the
+           card actually has that much free to give back. */
+        if (c.unloadSupported && (c.unloadableCents || 0) >= MIN_UNLOAD)
+          actions += '<button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" data-act="unload" data-id="' + esc(c.id) + '">Unload</button>';
+        if (S.catalog && S.catalog.walletEdition && S.catalog.walletEdition.enabled && c.walletEligible)
+          actions += '<button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" data-act="wallet" data-id="' + esc(c.id) + '">Add to Apple / Google Pay</button>';
+      }
+      actions += '<button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" data-act="log" data-id="' + esc(c.id) + '">Transactions</button>';
+    }
+
+    var emptyNote = (c.status === "active" && !c.funded) ?
+      '<div class="rl-empty-card">' +
+        "<h5>This card is empty</h5>" +
+        "<p>Anything that tries to charge it will decline until it's loaded. If something bills this card " +
+        "on its own (a subscription, a renewal), keep a little balance riding on it. " +
+        "Load it with at least <strong>" + usd(MIN_LOAD) + "</strong> below — the number can be revealed once it is funded.</p>" +
+      "</div>" : "";
+
+    /* The unloadable figure is what can actually leave, so say so plainly when
+       the card holds money but not enough to reach the floor. */
+    var unloadNote = (c.status === "active" && c.funded && c.unloadSupported &&
+                      (c.unloadableCents || 0) > 0 && (c.unloadableCents || 0) < MIN_UNLOAD) ?
+      '<p style="margin:12px 0 0;font-size:.78rem;color:var(--muted);line-height:1.45">' +
+        "Unloading needs at least <strong>" + usd(MIN_UNLOAD) + "</strong>; this card has " +
+        usd(c.unloadableCents) + " free to return.</p>" : "";
+
+    return '' +
+      '<article class="rl-card" data-card="' + esc(c.id) + '">' +
+        '<span class="rl-accent rl-accent--' + tier + '"></span>' +
+        '<div class="rl-head">' +
+          brandMark(c.network) +
+          '<div class="rl-head-txt">' +
+            '<span class="rl-tier-pill rl-pill--' + tier + '">' + esc(c.tier || "Card") + "</span>" +
+            '<span class="rl-card-label">' + esc(c.label || "") + "</span>" +
+          "</div>" +
+          walletMarks(c) +
+        "</div>" +
+        '<div class="rl-pan">' + pan + "</div>" +
+        '<dl class="rl-meta">' +
+          "<div><dt>Expires</dt><dd>" + esc(expiry) + "</dd></div>" +
+          (c.holderName ? "<div><dt>Holder</dt><dd>" + esc(c.holderName) + "</dd></div>" : "") +
+        "</dl>" +
+        '<div class="rl-body">' +
+          '<dl class="rl-money">' +
+            "<div><dt>Spendable</dt><dd>" + usd(c.spendableCents) + "</dd></div>" +
+            (c.pendingSpendCents ? "<div><dt>Pending</dt><dd class=\"rl-dim\">" + usd(c.pendingSpendCents) + "</dd></div>" : "") +
+            (c.reservedCents ? "<div><dt>Held</dt><dd class=\"rl-dim\">" + usd(c.reservedCents) + "</dd></div>" : "") +
+            "<div><dt>Can unload</dt><dd class=\"rl-dim\">" + usd(c.unloadableCents) + "</dd></div>" +
+          "</dl>" +
+          '<div class="rl-chips">' + lockChips(c) + "</div>" +
+          (billing ? '<p style="margin:14px 0 0;font-size:.78rem;color:var(--muted);line-height:1.45">' +
+                     "<strong style=\"color:var(--text-soft)\">Billing:</strong> " + esc(billing) + "</p>" : "") +
+          emptyNote + unloadNote +
+          '<div class="rl-card-actions">' + actions + "</div>" +
+          '<div class="rl-card-work" data-work="' + esc(c.id) + '"></div>' +
+        "</div>" +
+      "</article>";
+  }
+
+  function renderCards() {
+    var out = $("rlCardsOut");
+    if (!S.cards.length) {
+      out.innerHTML =
+        '<div class="rl-panel">' +
+          '<h3 class="rl-h">No cards yet</h3>' +
+          '<p class="rl-sub">Top your balance up, then mint your first card. The only requirement is having ' +
+          "the balance to cover the card's one-time fee.</p>" +
+          '<div class="rl-btn-row">' +
+            '<button type="button" class="rl-btn" data-go="topup">Top up balance</button>' +
+            '<button type="button" class="rl-btn rl-btn--ghost" data-go="issue">See the cards</button>' +
+          "</div>" +
+        "</div>";
+    } else {
+      out.innerHTML = '<div class="rl-cards">' + S.cards.map(cardHTML).join("") + "</div>";
+    }
+
+    wireCopy(out);
+    Array.prototype.forEach.call(out.querySelectorAll("[data-go]"), function (b) {
+      on(b, "click", function () { goTab(b.getAttribute("data-go")); });
+    });
+    Array.prototype.forEach.call(out.querySelectorAll("[data-act]"), function (b) {
+      on(b, "click", function () { cardAction(b.getAttribute("data-act"), b.getAttribute("data-id")); });
+    });
+
+    /* A freshly minted card sits at "issuing" for a few seconds before the
+       issuer returns its number and expiry. Poll quietly until it settles
+       rather than making the customer press Refresh. */
+    var issuing = S.cards.some(function (c) { return c.status === "issuing"; });
+    if (issuing && issuePolls < 20) { issuePolls++; setTimeout(refreshCards, 5000); }
+    if (!issuing) issuePolls = 0;
+  }
+  var issuePolls = 0;
+
+  function goTab(name) {
+    var t = document.querySelector('#rlAccount .rl-tab[data-tab="' + name + '"]');
+    if (t) t.click();
+  }
+  function work(id) { return document.querySelector('[data-work="' + CSS_escape(id) + '"]'); }
+  function CSS_escape(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+  function findCard(id) {
+    for (var i = 0; i < S.cards.length; i++) if (S.cards[i].id === id) return S.cards[i];
+    return null;
+  }
+
+  function cardAction(act, id) {
+    var w = work(id), c = findCard(id);
+    if (!w || !c) return;
+    if (w.dataset.open === act) { w.innerHTML = ""; w.dataset.open = ""; return; }
+    w.dataset.open = act;
+    if (act === "load")   return uiLoad(w, c);
+    if (act === "unload") return uiUnload(w, c);
+    if (act === "reveal") return uiReveal(w, c);
+    if (act === "wallet") return uiWallet(w, c);
+    if (act === "log")    return uiCardLog(w, c);
+  }
+
+  /* ------------------------------------------------------------ load card */
+  function uiLoad(w, c) {
+    var max = S.balanceCents;
+    if (max < MIN_LOAD) {
+      w.innerHTML =
+        '<div class="rl-note warn"><p><strong>Your balance is ' + usd(max) + ".</strong> The minimum load is " +
+          usd(MIN_LOAD) + ", so top up first — the amount you load comes out of your account balance.</p></div>" +
+        '<div class="rl-btn-row"><button type="button" class="rl-btn rl-btn--sm" data-go="topup">Top up balance</button></div>';
+      on(w.querySelector("[data-go]"), "click", function () { goTab("topup"); });
+      return;
+    }
+    w.innerHTML =
+      '<div class="rl-note" style="border-left-color:var(--primary)">' +
+        "<p><strong>The amount you enter leaves your account balance.</strong> The load fee comes out of it, " +
+        "so at the standard 5% rate a " + usd(MIN_LOAD) + " load puts " + usd(Math.round(MIN_LOAD * 0.95)) +
+        " on the card. Minimum " + usd(MIN_LOAD) + ".</p>" +
+      "</div>" +
+      "<form data-form=\"load\">" +
+        '<label for="rlLoadAmt-' + esc(c.id) + '">Amount to take from your balance (USD)</label>' +
+        '<input type="number" id="rlLoadAmt-' + esc(c.id) + '" step="0.01" min="15" ' +
+               'max="' + (max / 100).toFixed(2) + '" placeholder="15.00" required>' +
+        '<p style="margin:8px 0 0;font-size:.8rem;color:var(--muted)">Available balance: <strong>' +
+          usd(max) + "</strong></p>" +
+        '<div class="rl-btn-row"><button type="submit" class="rl-btn rl-btn--sm">Load this card</button></div>' +
+      "</form><div data-msg></div>";
+
+    on(w.querySelector('[data-form="load"]'), "submit", function (e) {
+      e.preventDefault();
+      var cents = Math.round(parseFloat(this.querySelector("input").value) * 100);
+      var msg = w.querySelector("[data-msg]");
+      if (!cents || cents < MIN_LOAD) {
+        msg.innerHTML = '<div class="rl-err">The minimum load is ' + usd(MIN_LOAD) + ".</div>"; return;
+      }
+      if (cents > S.balanceCents) {
+        msg.innerHTML = '<div class="rl-err">That is more than your balance of ' + usd(S.balanceCents) +
+                        ". Top up first.</div>"; return;
+      }
+      var btn = this.querySelector("button");
+      btn.disabled = true; btn.textContent = "Loading…"; msg.innerHTML = "";
+      call("load-card.php", { amount: cents, id: c.id, session: S.session })
+        .then(function (d) {
+          if (d && d.ok) {
+            msg.innerHTML = '<div class="rl-ok">Loaded. Your card and balance are updating…</div>';
+            return refreshAll();
+          }
+          msg.innerHTML = '<div class="rl-err">' + esc(errorText(d && d.error)) + "</div>";
+          btn.disabled = false; btn.textContent = "Load this card";
+        })
+        .catch(function () {
+          msg.innerHTML = '<div class="rl-err">The load did not go through. Please try again.</div>';
+          btn.disabled = false; btn.textContent = "Load this card";
+        });
+    });
+  }
+
+  /* ---------------------------------------------------------- unload card */
+  function uiUnload(w, c) {
+    var max = c.unloadableCents || 0;
+
+    if (max < MIN_UNLOAD) {
+      w.innerHTML =
+        '<div class="rl-note warn"><p><strong>This card has ' + usd(max) + " free to return.</strong> " +
+          "The minimum unload is " + usd(MIN_UNLOAD) + ", so there is not enough on it yet. Anything " +
+          "authorised at a merchant or still clearing has to settle before it can leave.</p></div>";
+      return;
+    }
+
+    w.innerHTML =
+      '<div class="rl-note"><p>Money moves from this card back to your account balance. Only the ' +
+        "<strong>" + usd(max) + "</strong> shown as unloadable can leave — anything authorised at a merchant " +
+        "or still clearing has to settle first. The minimum unload is <strong>" + usd(MIN_UNLOAD) + "</strong>.</p></div>" +
+      "<form data-form=\"unload\">" +
+        '<label for="rlUnAmt-' + esc(c.id) + '">Amount to return to your balance (USD)</label>' +
+        '<input type="number" id="rlUnAmt-' + esc(c.id) + '" step="0.01" min="' + (MIN_UNLOAD / 100).toFixed(2) + '" ' +
+               'max="' + (max / 100).toFixed(2) + '" placeholder="' + (max / 100).toFixed(2) + '" required>' +
+        '<p style="margin:8px 0 0;font-size:.8rem;color:var(--muted)">Between <strong>' + usd(MIN_UNLOAD) +
+          "</strong> and <strong>" + usd(max) + "</strong>.</p>" +
+        '<div class="rl-btn-row"><button type="submit" class="rl-btn rl-btn--sm">Unload</button></div>' +
+      "</form><div data-msg></div>";
+
+    on(w.querySelector('[data-form="unload"]'), "submit", function (e) {
+      e.preventDefault();
+      var cents = Math.round(parseFloat(this.querySelector("input").value) * 100);
+      var msg = w.querySelector("[data-msg]");
+      if (!cents || cents < MIN_UNLOAD) {
+        msg.innerHTML = '<div class="rl-err">The minimum unload is ' + usd(MIN_UNLOAD) + ".</div>"; return;
+      }
+      if (cents > max) {
+        msg.innerHTML = '<div class="rl-err">Only ' + usd(max) + " can be returned from this card right now.</div>"; return;
+      }
+      var btn = this.querySelector("button");
+      btn.disabled = true; btn.textContent = "Unloading…"; msg.innerHTML = "";
+      call("unload-card.php", { id: c.id, session: S.session, amount: cents })
+        .then(function (d) {
+          if (d && d.ok) {
+            msg.innerHTML = '<div class="rl-ok">Unloaded. Your card and balance are updating…</div>';
+            return refreshAll();
+          }
+          msg.innerHTML = '<div class="rl-err">' + esc(errorText(d && d.error)) + "</div>";
+          btn.disabled = false; btn.textContent = "Unload";
+        })
+        .catch(function () {
+          msg.innerHTML = '<div class="rl-err">The unload did not go through. Please try again.</div>';
+          btn.disabled = false; btn.textContent = "Unload";
+        });
+    });
+  }
+
+  /* =========================== TOTP STEP-UP =========================== */
+  /* Optimistic: the sensitive call is attempted first and a code is only
+     requested when the API answers step_up_required. */
+
+  function stepUp(container) {
+    return call("totp-status.php", { session: S.session }).then(function (st) {
+      if (st && st.method === "totp_setup_required") return enrol(container);
+      return askCode(container, "Enter the six-digit code from your authenticator app.");
+    });
+  }
+
+  function enrol(container) {
+    return call("totp-setup.php", { session: S.session }).then(function (d) {
+      if (!d || !d.totp_secret) throw new Error("setup_failed");
+      var secret = d.totp_secret;
+      var uri = "otpauth://totp/PayGate.to:Reloadable%20Card?secret=" + encodeURIComponent(secret) +
+                "&issuer=PayGate.to&algorithm=SHA1&digits=6&period=30";
+      return new Promise(function (resolve, reject) {
+        container.innerHTML =
+          '<div class="rl-note warn"><p><strong>Set up two-factor authentication first.</strong> ' +
+            "Add this secret to an authenticator app — Google Authenticator, Aegis, 1Password, Bitwarden — " +
+            "then enter the code it shows. Back the secret up: losing it locks reveal and wallet setup " +
+            "on this account.</p></div>" +
+          '<span class="rl-cred-label">Secret key</span>' +
+          '<div class="copy-text"><input type="text" class="text rl-mono" value="' + esc(secret) +
+            '" readonly aria-label="Authenticator secret"><button type="button" data-copy>Copy</button></div>' +
+          '<div class="rl-btn-row"><a class="rl-btn rl-btn--ghost rl-btn--sm" href="' + esc(uri) +
+            '" style="text-decoration:none">Open in authenticator app</a></div>' +
+          '<form data-form="enrol" style="margin-top:14px">' +
+            "<label>Six-digit code from your app</label>" +
+            '<input type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" ' +
+                   'class="rl-mono" placeholder="000000" required>' +
+            '<div class="rl-btn-row"><button type="submit" class="rl-btn rl-btn--sm">Confirm and continue</button></div>' +
+          "</form><div data-msg></div>";
+
+        wireCopy(container);
+        on(container.querySelector('[data-form="enrol"]'), "submit", function (e) {
+          e.preventDefault();
+          var code = this.querySelector("input").value.trim();
+          var msg = container.querySelector("[data-msg]"), btn = this.querySelector("button");
+          btn.disabled = true; btn.textContent = "Checking…"; msg.innerHTML = "";
+          call("totp-submit.php", { session: S.session, code: code, setup: 1 })
+            .then(function (r) {
+              if (r && r.ok) return resolve(true);
+              if (r && r.error === "already_enabled") {
+                /* Enrolled elsewhere in the meantime — fall through to a plain step-up. */
+                return resolve(askCode(container, "This account already has an authenticator. Enter its current code."));
+              }
+              msg.innerHTML = '<div class="rl-err">' + esc(errorText(r && r.error, "That code was not accepted. Try the next one.")) + "</div>";
+              btn.disabled = false; btn.textContent = "Confirm and continue";
+            })
+            .catch(function () {
+              msg.innerHTML = '<div class="rl-err">We could not confirm that code. Please try again.</div>';
+              btn.disabled = false; btn.textContent = "Confirm and continue";
+              reject(new Error("enrol_failed"));
+            });
+        });
+      });
+    });
+  }
+
+  function askCode(container, prompt) {
+    return new Promise(function (resolve, reject) {
+      container.innerHTML =
+        '<div class="rl-note"><p>' + esc(prompt) + "</p></div>" +
+        '<form data-form="code">' +
+          "<label>Authenticator code</label>" +
+          '<input type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" ' +
+                 'class="rl-mono" placeholder="000000" required autocomplete="one-time-code">' +
+          '<div class="rl-btn-row"><button type="submit" class="rl-btn rl-btn--sm">Verify</button></div>' +
+        "</form><div data-msg></div>";
+      var input = container.querySelector("input");
+      if (input) input.focus();
+
+      on(container.querySelector('[data-form="code"]'), "submit", function (e) {
+        e.preventDefault();
+        var code = this.querySelector("input").value.trim();
+        var msg = container.querySelector("[data-msg]"), btn = this.querySelector("button");
+        btn.disabled = true; btn.textContent = "Verifying…"; msg.innerHTML = "";
+        call("totp-submit.php", { session: S.session, code: code })
+          .then(function (r) {
+            if (r && r.ok) return resolve(true);
+            msg.innerHTML = '<div class="rl-err">' +
+              esc(errorText(r && r.error, "That code was not accepted. Wait for the next one and try again.")) + "</div>";
+            btn.disabled = false; btn.textContent = "Verify";
+          })
+          .catch(function () {
+            msg.innerHTML = '<div class="rl-err">We could not verify that code. Please try again.</div>';
+            btn.disabled = false; btn.textContent = "Verify";
+            reject(new Error("code_failed"));
+          });
+      });
+    });
+  }
+
+  /* --------------------------------------------------------- reveal card */
+  function uiReveal(w, c) {
+    w.innerHTML = '<div class="rl-wait"><div class="spinner"></div><div class="rl-wait-sub">Checking…</div></div>';
+
+    function attempt() { return call("reveal-card-number.php", { id: c.id, session: S.session }); }
+
+    attempt()
+      .then(function (d) {
+        if (d && d.error === "step_up_required") {
+          return stepUp(w).then(attempt);
+        }
+        return d;
+      })
+      .then(function (d) {
+        if (!d || !d.ok) {
+          w.innerHTML = '<div class="rl-err">' + esc(errorText(d && d.error,
+            "The card number could not be shown. If this card has not been loaded yet, load it first.")) + "</div>";
+          return;
+        }
+        paintReveal(w, d);
+      })
+      .catch(function () {
+        w.innerHTML = '<div class="rl-err">The card number could not be shown right now. Please try again.</div>';
+      });
+  }
+
+  function paintReveal(w, d) {
+    var pan = String(d.pan || "").replace(/(.{4})/g, "$1 ").trim();
+    w.innerHTML =
+      '<div class="rl-reveal">' +
+        '<div style="font-weight:800;font-size:.95rem;color:var(--text)">Card details</div>' +
+        '<p style="margin:4px 0 0;font-size:.8rem;color:var(--text-soft);line-height:1.45">' +
+          "Visible on this screen only — nothing is stored or sent anywhere. Hidden again automatically.</p>" +
+        '<dl class="rl-reveal-grid">' +
+          "<div><dt>Card number</dt><dd>" + esc(pan) + "</dd></div>" +
+          "<div><dt>CVV</dt><dd>" + esc(d.cvv) + "</dd></div>" +
+          "<div><dt>Expires</dt><dd>" + String(d.expMonth).padStart(2, "0") + "/" + esc(d.expYear) + "</dd></div>" +
+          (d.pin ? "<div><dt>PIN</dt><dd>" + esc(d.pin) + "</dd></div>" : "") +
+        "</dl>" +
+        '<div class="copy-text"><input type="text" class="text rl-mono" value="' + esc(d.pan) +
+          '" readonly aria-label="Card number"><button type="button" data-copy>Copy number</button></div>' +
+        '<div class="rl-reveal-timer">Hiding in <span data-count>90</span>s · ' +
+          '<a href="#" data-hide style="font-weight:700">hide now</a></div>' +
+      "</div>";
+
+    wireCopy(w);
+    var left = 90, cnt = w.querySelector("[data-count]");
+    clearInterval(S.revealTimer);
+    S.revealTimer = setInterval(function () {
+      left--;
+      if (cnt) cnt.textContent = left;
+      if (left <= 0) { clearInterval(S.revealTimer); w.innerHTML = ""; w.dataset.open = ""; }
+    }, 1000);
+    on(w.querySelector("[data-hide]"), "click", function (e) {
+      e.preventDefault(); clearInterval(S.revealTimer); w.innerHTML = ""; w.dataset.open = "";
+    });
+  }
+
+  /* ------------------------------------------------- Apple / Google Pay */
+  function stopWalletPoll() { if (S.walletPoll) { clearInterval(S.walletPoll); S.walletPoll = null; } }
+
+  function uiWallet(w, c) {
+    w.innerHTML =
+      '<div class="rl-note warn"><p><strong>Choose Email in the wallet app — never phone or SMS.</strong> ' +
+        "Email is the channel we listen on, so a code sent any other way will not reach this page.</p></div>" +
+      '<div class="rl-choice">' +
+        '<button type="button" data-w="apple" aria-pressed="false">' + SVG_APPLE + " Apple Wallet</button>" +
+        '<button type="button" data-w="google" aria-pressed="false">' + SVG_GOOGLE + " Google Wallet</button>" +
+      "</div><div data-wout></div>";
+
+    Array.prototype.forEach.call(w.querySelectorAll("[data-w]"), function (b) {
+      on(b, "click", function () {
+        Array.prototype.forEach.call(w.querySelectorAll("[data-w]"), function (x) {
+          x.setAttribute("aria-pressed", String(x === b));
+        });
+        walletSteps(w.querySelector("[data-wout]"), c, b.getAttribute("data-w"));
+      });
+    });
+  }
+
+  function walletSteps(out, c, type) {
+    var isApple = type === "apple";
+    var open = isApple
+      ? "Open Wallet on your iPhone: tap <strong>+</strong> and <strong>Debit or Credit Card</strong>"
+      : "Open Google Wallet: <strong>Add to Wallet</strong>, then <strong>Payment card</strong>";
+    var brand = isApple ? "Apple" : "Google";
+
+    out.innerHTML =
+      '<ol class="rl-steps">' +
+        "<li>" + open + "</li>" +
+        "<li>Enter the number from <strong>Reveal number</strong>; " + brand + " will ask to verify the card</li>" +
+        "<li>Pick <strong>Email</strong> (never phone or SMS), then press <strong>Get code</strong> below and wait here</li>" +
+        "<li>Six digits land on this page: type them into Wallet and tap</li>" +
+      "</ol>" +
+      '<div class="rl-btn-row"><button type="button" class="rl-btn rl-btn--sm" data-arm>Get code</button></div>' +
+      "<div data-armout></div>";
+
+    on(out.querySelector("[data-arm]"), "click", function () {
+      armWallet(out.querySelector("[data-armout]"), c, type, this);
+    });
+  }
+
+  function armWallet(box, c, type, btn) {
+    stopWalletPoll();
+    btn.disabled = true; btn.textContent = "Arming…";
+    box.innerHTML = "";
+
+    function attempt() { return call("arm-wallet-code.php", { id: c.id, session: S.session, type: type }); }
+
+    attempt()
+      .then(function (d) {
+        if (d && d.error === "step_up_required") return stepUp(box).then(attempt);
+        return d;
+      })
+      .then(function (d) {
+        if (!d || !d.ok) {
+          box.innerHTML = '<div class="rl-err">' + esc(errorText(d && d.error,
+            "We could not start the wallet code listener. Please try again.")) + "</div>";
+          btn.disabled = false; btn.textContent = "Get code";
+          return;
+        }
+        pollWallet(box, c, type, btn);
+      })
+      .catch(function () {
+        box.innerHTML = '<div class="rl-err">We could not start the wallet code listener. Please try again.</div>';
+        btn.disabled = false; btn.textContent = "Get code";
+      });
+  }
+
+  /* Once a code is captured it stays on screen for the rest of the session.
+     There is no expiry on the digits themselves — the customer may need a
+     moment to get back to the wallet app, and a vanished code is unrecoverable
+     without arming all over again. A fresh one can be requested at any time. */
+  function showWalletCode(box, c, type, btn, code) {
+    stopWalletPoll();
+    box.innerHTML =
+      '<div class="rl-code-out">' +
+        '<div class="rl-code-cap">Your verification code</div>' +
+        '<div class="rl-code-digits">' + esc(String(code)) + "</div>" +
+        '<p class="rl-code-hint">Type these six digits into the wallet app and tap through. ' +
+          "They stay here while you finish — nothing to rush.</p>" +
+      "</div>" +
+      '<div class="rl-btn-row"><button type="button" class="rl-btn rl-btn--ghost rl-btn--sm" data-again>Request another code</button></div>';
+
+    btn.disabled = false; btn.textContent = "Get code";
+    on(box.querySelector("[data-again]"), "click", function () { armWallet(box, c, type, btn); });
+  }
+
+  function pollWallet(box, c, type, btn) {
+    var ARM_MS = 60000;                       /* the window the API keeps open */
+    /* Start at the documented window and let the server's own timing correct
+       it on the first reply, rather than showing a padded local guess. */
+    var endAt = Date.now() + ARM_MS;
+    var anchored = false, lastCall = false;
+
+    box.innerHTML =
+      '<div class="rl-note"><p><strong>Listening for your code.</strong> Press <em>Get code</em> inside the ' +
+        "wallet app now, with <strong>Email</strong> selected. Keep this page open — " +
+        '<span data-wcount>60</span>s remaining.</p></div>';
+    var cnt = box.querySelector("[data-wcount]");
+
+    var TIMED_OUT =
+      '<div class="rl-note warn"><p><strong>No code arrived.</strong> That usually means ' +
+        "<em>Get code</em> had not been pressed yet, or the wallet app was set to SMS instead of " +
+        "<strong>Email</strong>. Nothing is lost — try again.</p></div>" +
+      '<div class="rl-btn-row"><button type="button" class="rl-btn rl-btn--sm" data-again>Try again</button></div>';
+
+    function timedOut() {
+      stopWalletPoll();
+      box.innerHTML = TIMED_OUT;
+      btn.disabled = false; btn.textContent = "Get code";
+      on(box.querySelector("[data-again]"), "click", function () { armWallet(box, c, type, btn); });
+    }
+
+    /* Anchor the countdown to whichever instant the API reports: expiresAt is
+       the close of the arming window, armedAt its opening. */
+    function anchor(d) {
+      if (anchored || !d) return;
+      var t = NaN;
+      if (d.expiresAt) t = new Date(d.expiresAt).getTime();
+      else if (d.armedAt) t = new Date(d.armedAt).getTime() + ARM_MS;
+      if (!isNaN(t) && t > Date.now()) { endAt = t; anchored = true; }
+    }
+
+    function render() {
+      var left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+      if (cnt) cnt.textContent = left;
+      return left;
+    }
+
+    function check(isFinal) {
+      return call("check-wallet-code.php", { id: c.id, session: S.session, type: type })
+        .then(function (d) {
+          if (!d || !S.walletPoll) return;    /* already finished */
+          anchor(d);
+
+          var code = d.code || d.otp || d.wallet_code || d.walletCode;
+          if (code) return showWalletCode(box, c, type, btn, code);
+          if (d.status === "timeout" || isFinal) timedOut();
+        })
+        .catch(function () { if (isFinal) timedOut(); });
+    }
+
+    S.walletPoll = setInterval(function () {
+      var left = render();
+
+      /* The window has closed. Take one last look before giving up — a code
+         captured in the final seconds would otherwise be thrown away. */
+      if (left <= 0) {
+        if (lastCall) return;
+        lastCall = true;
+        if (cnt) cnt.textContent = "0";
+        check(true);
+        return;
+      }
+      if (left % 10 !== 0) return;            /* poll every 10s */
+      check(false);
+    }, 1000);
+
+    render();
+  }
+
+  /* ------------------------------------------------------- card activity */
+  /* card-activity.php answers with a `transactions` array whose rows are richer
+     than the account ledger: a merchant, an MCC, a status, fees and, for a
+     charge abroad, the original amount in the merchant's own currency. */
+  var TX_CREDIT = { load: 1, refund: 1, reversal: 1, credit: 1, topup: 1 };
+  var TX_DEBIT  = { purchase: 1, spend: 1, charge: 1, capture: 1, fee: 1,
+                    unload: 1, withdrawal: 1, atm: 1 };
+  var TX_LABEL  = { load: "Card load", unload: "Unload to balance", refund: "Refund",
+                    purchase: "Purchase", reversal: "Reversal", fee: "Fee" };
+
+  function txStatusClass(st) {
+    st = String(st || "").toLowerCase();
+    if (st === "settled" || st === "captured" || st === "completed") return "rl-tx-tag--ok";
+    if (st === "reversed" || st === "declined" || st === "failed" || st === "expired") return "rl-tx-tag--bad";
+    if (st === "pending" || st === "authorized" || st === "authorised" || st === "clearing") return "rl-tx-tag--warn";
+    return "";
+  }
+
+  function txRow(t) {
+    var kind = String(t.kind || "").toLowerCase();
+    var amt = Number(t.amountCents) || 0;
+    /* Amounts arrive as magnitudes, so direction comes from the kind — and a
+       negative value, if one ever appears, still wins. */
+    var credit = amt < 0 ? false : !!TX_CREDIT[kind];
+    var debit = amt < 0 ? true : !!TX_DEBIT[kind];
+    var sign = credit ? "+" : debit ? "−" : "";
+    var title = t.merchant || TX_LABEL[kind] || (kind ? kind.replace(/_/g, " ") : "Transaction");
+
+    var bits = "";
+    if (kind) bits += '<span class="rl-tx-tag">' + esc(TX_LABEL[kind] || kind.replace(/_/g, " ")) + "</span>";
+    if (t.status) bits += '<span class="rl-tx-tag ' + txStatusClass(t.status) + '">' + esc(t.status) + "</span>";
+    if (t.mcc) {
+      bits += CLOSED_MCC[String(t.mcc)]
+        ? '<span class="rl-tx-tag rl-tx-tag--closed">Closed category · MCC ' + esc(t.mcc) + "</span>"
+        : '<span class="rl-tx-meta">MCC ' + esc(t.mcc) + "</span>";
+    }
+    var stamp = t.settledAt || t.createdAt || t.authorizedAt;
+    if (stamp) bits += '<span class="rl-tx-meta">' + esc(when(stamp)) + "</span>";
+
+    var fees = (Number(t.feeCents) || 0) + (Number(t.intlFeeCents) || 0);
+    var feeText = "";
+    if (fees > 0) {
+      var parts = [];
+      if (Number(t.feeCents) > 0) parts.push("fee " + usd(t.feeCents));
+      if (Number(t.intlFeeCents) > 0) parts.push("intl fee " + usd(t.intlFeeCents));
+      feeText = '<span class="rl-tx-fee">' + esc(parts.join(" · ")) + "</span>";
+    }
+
+    var fxText = "";
+    if (t.fx && t.fx.currency && typeof t.fx.amountCents === "number")
+      fxText = '<span class="rl-tx-fx">' + esc(fxMoney(t.fx.amountCents, t.fx.currency)) + "</span>";
+    else if (t.currency && String(t.currency).toUpperCase() !== "USD")
+      fxText = '<span class="rl-tx-fx">' + esc(String(t.currency).toUpperCase()) + "</span>";
+
+    return '<li>' +
+      '<span class="rl-log-ic ' + (credit ? "in" : debit ? "out" : "") + '">' +
+        esc(credit ? "IN" : debit ? "OUT" : "TX") + "</span>" +
+      '<span class="rl-log-main">' +
+        '<span class="rl-log-note">' + esc(title) + "</span>" +
+        '<span class="rl-tx-sub">' + bits + "</span>" +
+      "</span>" +
+      '<span class="rl-log-amt' + (credit ? " in" : "") + '">' +
+        esc(sign) + usd(amt) + fxText + feeText +
+      "</span></li>";
+  }
+
+  function txHTML(d) {
+    var tx = (d && d.transactions) || [];
+    if (!tx.length)
+      return '<p style="margin:12px 0 0;color:var(--muted);font-size:.85rem">' +
+             "No transactions on this card yet.</p>";
+    return '<p style="margin:14px 0 4px;font-size:.7rem;font-weight:800;letter-spacing:.06em;' +
+             'text-transform:uppercase;color:var(--muted)">Card transactions</p>' +
+           '<ul class="rl-log">' + tx.map(txRow).join("") + "</ul>";
+  }
+
+  function uiCardLog(w, c) {
+    w.innerHTML = '<div class="rl-wait"><div class="spinner"></div><div class="rl-wait-sub">Loading transactions…</div></div>';
+    call("card-activity.php", { id: c.id, session: S.session })
+      .then(function (d) {
+        if (!d || d.ok !== true) throw new Error(d && d.error ? d.error : "card_activity_failed");
+        w.innerHTML = txHTML(d);
+      })
+      .catch(function () {
+        w.innerHTML = '<div class="rl-err">Transactions could not be loaded. Please try again.</div>';
+      });
+  }
+
+  /* ============================== GET A CARD ============================== */
+
+  function tierPrice(tier) {
+    var cat = S.catalog || {};
+    var base = (cat.tierPriceCents && cat.tierPriceCents[tier]);
+    if (tier === "eclipse" && cat.eclipseDoor && typeof cat.eclipseDoor.priceCents === "number")
+      base = cat.eclipseDoor.priceCents;
+    if (typeof base !== "number") return null;
+    var off = ((cat.discounts && cat.discounts[tier]) || 0) + (cat.discountCents || 0);
+    return { now: Math.max(0, base - off), was: off > 0 ? base : null };
+  }
+
+  function tierAvailable(tier) {
+    var cat = S.catalog || {};
+    if (!cat.availability || !cat.availability.canMint) return "Minting is paused right now";
+    if (cat.availability.byTier && cat.availability.byTier[tier] === false) return "Not available right now";
+    if (typeof cat.maxLiveCards === "number" && S.cards.length >= cat.maxLiveCards)
+      return "You have reached your limit of " + cat.maxLiveCards + " cards";
+    var cap = cat.tierCaps && cat.tierCaps[tier];
+    if (typeof cap === "number") {
+      var have = S.cards.filter(function (c) { return String(c.tier).toLowerCase() === tier; }).length;
+      if (have >= cap) return "You already have the maximum of " + cap + " " + tier + " cards";
+    }
+    var p = tierPrice(tier);
+    if (p && S.balanceCents < p.now) return "Top up " + usd(p.now - S.balanceCents) + " more to mint this";
+    return null;
+  }
+
+  /* Tiers come from the API's own price list, so a tier added or withdrawn by
+     the card programme appears or disappears here without a code change. The
+     known three are ordered first; anything new is appended. */
+  function offeredTiers() {
+    var prices = (S.catalog && S.catalog.tierPriceCents) || {};
+    var keys = Object.keys(prices);
+    var known = TIER_ORDER.filter(function (t) { return keys.indexOf(t) !== -1; });
+    var extra = keys.filter(function (t) { return TIER_ORDER.indexOf(t) === -1; }).sort();
+    return known.concat(extra);
+  }
+
+  function renderTiers() {
+    var box = $("rlTierPicker");
+    if (!box) return;
+    if (!S.catalog) { box.innerHTML = '<div class="rl-wait"><div class="spinner"></div></div>'; return; }
+
+    var tiers = offeredTiers();
+    if (!tiers.length) {
+      box.innerHTML = '<p style="margin:0;color:var(--muted);font-size:.88rem">No cards are being offered right now. Please check back shortly.</p>';
+      S.pickedTier = null;
+      $("rlIssueBtn").disabled = true;
+      $("rlIssueBtn").textContent = "Currently unavailable";
+      return;
+    }
+
+    box.innerHTML = tiers.map(function (tier) {
+      var p = tierPrice(tier);
+      if (!p) return "";
+      var blocked = tierAvailable(tier);
+      var k = tierKey(tier);
+      var specs = TIER_SPECS[tier] || ["Mints against your balance — nothing else to provide",
+                                       "Prepaid: the whole balance is spendable",
+                                       "Loads from " + usd(MIN_LOAD)];
+      /* A div with role=radio, not a button: the spec list inside is flow
+         content, which a <button> is not allowed to contain. */
+      return '' +
+        '<div class="rl-tier' + (blocked ? " is-off" : "") + '" data-tier="' + esc(tier) + '"' +
+             ' role="radio" aria-checked="false"' +
+             (blocked ? ' aria-disabled="true"' : ' tabindex="0"') + ">" +
+          '<span class="rl-accent rl-accent--' + k + '"></span>' +
+          '<span class="rl-tier-tick">' + TICK + "</span>" +
+          '<div class="rl-tier-head">' +
+            '<span class="rl-tier-pill rl-pill--' + k + '">' + esc(tier) + "</span>" +
+            '<span class="rl-tier-d">' + esc(TIER_BLURB[tier] || "Reloadable virtual card") + "</span>" +
+          "</div>" +
+          '<div class="rl-tier-price"><b>' + usd(p.now) + "</b>" +
+            (p.was ? "<s>" + usd(p.was) + "</s>" : "") +
+            "<span>one-time</span></div>" +
+          '<ul class="rl-tier-specs">' +
+            specs.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") +
+          "</ul>" +
+          '<div class="rl-tier-foot">' + esc(blocked || "Mints empty · load from " + usd(MIN_LOAD)) + "</div>" +
+        "</div>";
+    }).join("");
+
+    function pick(el) {
+      if (el.getAttribute("aria-disabled") === "true") return;
+      S.pickedTier = el.getAttribute("data-tier");
+      Array.prototype.forEach.call(box.querySelectorAll("[data-tier]"), function (x) {
+        var on_ = x === el;
+        x.classList.toggle("is-on", on_);
+        x.setAttribute("aria-checked", String(on_));
+      });
+      var pp = tierPrice(S.pickedTier), btn = $("rlIssueBtn");
+      btn.disabled = false;
+      btn.textContent = "Mint " + S.pickedTier.charAt(0).toUpperCase() + S.pickedTier.slice(1) +
+                        " for " + usd(pp.now);
+    }
+
+    Array.prototype.forEach.call(box.querySelectorAll("[data-tier]"), function (b) {
+      on(b, "click", function () { pick(b); });
+      on(b, "keydown", function (e) {
+        if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(b); }
+      });
+    });
+
+    if (S.pickedTier && !tierAvailable(S.pickedTier)) {
+      var sel = box.querySelector('[data-tier="' + S.pickedTier + '"]');
+      if (sel) pick(sel);
+    } else {
+      S.pickedTier = null;
+      $("rlIssueBtn").disabled = true;
+      $("rlIssueBtn").textContent = "Select a card type";
+    }
+  }
+
+  on($("rlIssueBtn"), "click", function () {
+    if (!S.pickedTier) return;
+    var btn = this, msg = $("rlIssueMsg");
+    btn.disabled = true; btn.textContent = "Minting…"; msg.innerHTML = "";
+
+    call("issue-card.php", { session: S.session, type: S.pickedTier })
+      .then(function (d) {
+        if (d && d.ok) {
+          msg.innerHTML = '<div class="rl-ok">Your ' + esc(S.pickedTier) + " card is being issued for " +
+            usd(d.priceCents) + ". It arrives empty — load it with at least " + usd(MIN_LOAD) +
+            " to activate it.</div>";
+          S.pickedTier = null;
+          return refreshAll().then(function () { setTimeout(function () { goTab("cards"); }, 900); });
+        }
+        if (d && d.error === "insufficient_funds") {
+          var short = (typeof d.priceCents === "number") ? d.priceCents - S.balanceCents : 0;
+          msg.innerHTML = '<div class="rl-err">Not enough balance. This card costs ' +
+            usd(d.priceCents) + (short > 0 ? " — you need " + usd(short) + " more." : ".") + "</div>";
+        } else {
+          msg.innerHTML = '<div class="rl-err">' + esc(errorText(d && d.error)) + "</div>";
+        }
+        renderTiers();
+      })
+      .catch(function () {
+        msg.innerHTML = '<div class="rl-err">The card could not be minted right now. Please try again.</div>';
+        renderTiers();
+      });
+  });
+
+  /* ================================ TOP UP ================================ */
+
+  /* An affiliate wallet must be on the same chain as the coin being deposited.
+     erc20/* tokens settle to an EVM address, so they fall back to the `eth`
+     wallet unless a per-token override is configured. A coin with no wallet
+     uses the plain endpoint rather than sending a commission nowhere. */
+  function walletFor(map, ticker) {
+    if (!map) return "";
+    if (map[ticker]) return map[ticker];
+    if (ticker.indexOf("erc20/") === 0 && map.eth) return map.eth;
+    return "";
+  }
+
+  function depositUrl(ticker) {
+    var base = COIN_API + ticker + "/cards/reloadable/";
+    var aff = walletFor(CONFIG.affiliate, ticker);
+    var sub = walletFor(CONFIG.sub_affiliate, ticker);
+
+    if (aff && CONFIG.affiliate_fee && sub && CONFIG.sub_affiliate_fee) {
+      return base + "custom-sub-affiliate.php?" + q({
+        session: S.session,
+        affiliate: aff, affiliate_fee: CONFIG.affiliate_fee,
+        sub_affiliate: sub, sub_affiliate_fee: CONFIG.sub_affiliate_fee
+      });
+    }
+    if (aff && CONFIG.affiliate_fee) {
+      return base + "custom-affiliate.php?" + q({
+        session: S.session, affiliate: aff, affiliate_fee: CONFIG.affiliate_fee
+      });
+    }
+    return base + "wallet.php?" + q({ session: S.session });
+  }
+
+  function stopDepositTimer() {
+    if (S.depositTimer) { clearInterval(S.depositTimer.id); S.depositTimer = null; }
+  }
+
+  on($("rlDepositForm"), "submit", function (e) {
+    e.preventDefault();
+    var ticker = $("rlTicker").value;
+    var btn = $("rlDepositBtn"), out = $("rlDepositOut");
+    btn.disabled = true; btn.textContent = "Generating…";
+    out.innerHTML = '<div class="rl-wait"><div class="spinner"></div><div class="rl-wait-sub">Creating your deposit address…</div></div>';
+    stopDepositTimer();
+
+    req(depositUrl(ticker))
+      .then(function (d) {
+        if (!d || !d.ok || !d.address_in) throw new Error(d && d.error ? d.error : "deposit_failed");
+        paintDeposit(out, d);
+      })
+      .catch(function () {
+        out.innerHTML = '<div class="rl-err">A deposit address could not be created right now. Please try again.</div>';
+      })
+      .finally(function () { btn.disabled = false; btn.textContent = "Generate deposit address"; });
+  });
+
+  function paintDeposit(out, d) {
+    out.innerHTML =
+      '<div class="rl-deposit" style="margin-top:22px">' +
+        '<div class="rl-ring-wrap" id="rlRing">' +
+          '<svg class="rl-ring" viewBox="0 0 120 120" aria-hidden="true">' +
+            '<circle class="rl-ring-track" cx="60" cy="60" r="54"></circle>' +
+            '<circle class="rl-ring-bar" id="rlRingBar" cx="60" cy="60" r="54"></circle>' +
+          "</svg>" +
+          '<div class="rl-ring-in"><span class="rl-ring-time" id="rlRingTime">--:--</span>' +
+            '<span class="rl-ring-lab">remaining</span></div>' +
+        "</div>" +
+        (d.qr_code ? '<div class="rl-qr"><img src="data:image/png;base64,' + esc(d.qr_code) +
+                     '" alt="Payment QR code"></div>' : "") +
+        '<dl class="rl-dep-facts">' +
+          '<div class="rl-fact"><dt>Send</dt><dd>' + esc(d.asset || "") + "</dd></div>" +
+          '<div class="rl-fact"><dt>Network</dt><dd>' + esc(d.network || "") + "</dd></div>" +
+          '<div class="rl-fact rl-fact--min"><dt>Minimum — below this is lost</dt><dd>' +
+            esc(d.minimum_amount) + " " + esc(d.asset || "") + "</dd></div>" +
+        "</dl>" +
+        '<div style="width:100%;text-align:left">' +
+          '<span class="rl-cred-label">Deposit address — ' + esc(d.asset || "") + " on " + esc(d.network || "") + "</span>" +
+          '<div class="copy-text"><input type="text" class="text rl-mono" value="' + esc(d.address_in) +
+            '" readonly aria-label="Deposit address"><button type="button" data-copy>Copy</button></div>' +
+        "</div>" +
+        '<p style="margin:0;font-size:.83rem;color:var(--text-soft);text-align:center;line-height:1.5">' +
+          "This address is for this deposit only and stops accepting funds when the timer ends. " +
+          "Your balance updates automatically once the transaction confirms — press " +
+          "<strong>Refresh</strong> at the top to check.</p>" +
+        (d.ipn_token ? '<p style="margin:0;font-size:.72rem;color:var(--muted);text-align:center;word-break:break-all">' +
+          "Tracking reference: " + esc(String(d.ipn_token).slice(0, 24)) + "…</p>" : "") +
+      "</div>";
+
+    wireCopy(out);
+    startDepositTimer(d.expiresAt, d.createdAt, out);
+  }
+
+  /* Countdown derived from expiresAt, so a throttled background tab cannot
+     make it drift. Re-rendered whenever the tab comes back into view. */
+  function startDepositTimer(expiresAt, createdAt, out) {
+    stopDepositTimer();
+    var end = new Date(expiresAt).getTime();
+    var start = new Date(createdAt).getTime();
+    if (isNaN(end)) return;
+    var span = (!isNaN(start) && end > start) ? (end - start) / 1000 : 3600;
+    var CIRC = 2 * Math.PI * 54;
+
+    function render() {
+      var left = Math.max(0, Math.round((end - Date.now()) / 1000));
+      var t = $("rlRingTime"), ring = $("rlRing"), bar = $("rlRingBar");
+      if (!t) { stopDepositTimer(); return; }
+      t.textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" +
+                      String(left % 60).padStart(2, "0");
+      if (ring) ring.classList.toggle("is-ending", left <= 300);
+      if (bar) { bar.style.strokeDasharray = CIRC; bar.style.strokeDashoffset = (1 - left / span) * CIRC; }
+      if (left <= 0) {
+        stopDepositTimer();
+        out.innerHTML =
+          '<div class="rl-note danger" style="margin-top:22px"><p><strong>This deposit address has expired.</strong> ' +
+            "Do not send anything to it. Generate a new one above — if you already sent funds in time, " +
+            "your balance will still update once the transaction confirms.</p></div>";
+      }
+    }
+
+    var id = setInterval(render, 1000);
+    var vis = function () { if (!document.hidden) render(); };
+    document.addEventListener("visibilitychange", vis);
+    S.depositTimer = { id: id, vis: vis };
+    render();
+  }
+
+  /* Coin logos for the deposit selector, from the same public coin index the
+     rest of the API uses. Entirely optional: if it cannot load, the plain
+     select keeps working. */
+  function initCoinLogos() {
+    if (!CONFIG.showCoinLogos) return;
+    var sel = $("rlTicker");
+    if (!sel || sel.getAttribute("data-logos")) return;
+
+    req(INFO_API, { timeout: 8000 }).then(function (info) {
+      if (!info) return;
+      sel.setAttribute("data-logos", "1");
+
+      var wrap = document.createElement("span");
+      wrap.style.cssText = "display:flex;align-items:center;gap:10px;width:100%";
+      var img = document.createElement("img");
+      img.width = 24; img.height = 24; img.alt = "";
+      img.style.cssText = "border-radius:50%;flex:none;display:none;object-fit:contain;background:#fff";
+      sel.parentNode.insertBefore(wrap, sel);
+      wrap.appendChild(img);
+      wrap.appendChild(sel);
+      sel.style.flex = "1 1 auto";
+
+      function logoFor(t) {
+        if (t.indexOf("/") !== -1) {
+          var p = t.split("/"), net = p[0], sym = p.slice(1).join("/");
+          return (info[net] && info[net][sym] && info[net][sym].logo) || null;
+        }
+        return (info[t] && info[t].logo) || null;
+      }
+      function update() {
+        var url = logoFor(sel.value);
+        if (url) { img.src = url; img.style.display = ""; } else { img.style.display = "none"; }
+      }
+      on(sel, "change", update);
+      update();
+    }).catch(function () { /* logos are decorative */ });
+  }
+
+  /* =============================== ACTIVITY =============================== */
+
+  function logHTML(d, emptyText) {
+    var pending = (d && d.pending) || [], entries = (d && d.entries) || [];
+    if (!pending.length && !entries.length)
+      return '<p style="margin:8px 0 0;color:var(--muted);font-size:.88rem">' + esc(emptyText) + "</p>";
+
+    function row(e, isPending) {
+      var amt = Number(e.amountCents) || 0, inbound = amt > 0;
+      var kind = String(e.kind || "").replace(/_/g, " ");
+      var tag = { deposit: "IN", card_load: "LOAD", card_purchase: "CARD" }[e.kind] ||
+                (inbound ? "IN" : "OUT");
+      return '<li class="' + (isPending ? "rl-log-pending" : "") + '">' +
+        '<span class="rl-log-ic ' + (inbound ? "in" : "out") + '">' + esc(tag) + "</span>" +
+        '<span class="rl-log-main">' +
+          '<span class="rl-log-note">' + esc(e.note || kind || "Movement") + "</span>" +
+          '<span class="rl-log-time">' + esc(when(e.createdAt)) +
+            (isPending ? " · pending" : "") + "</span>" +
+        "</span>" +
+        '<span class="rl-log-amt' + (inbound ? " in" : "") + '">' +
+          (inbound ? "+" : "") + usd(amt) +
+          (typeof e.balanceAfter === "number"
+            ? '<span class="rl-log-bal">balance ' + usd(e.balanceAfter) + "</span>" : "") +
+        "</span></li>";
+    }
+
+    return (pending.length
+        ? '<p style="margin:6px 0 4px;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Pending</p>' +
+          '<ul class="rl-log">' + pending.map(function (e) { return row(e, true); }).join("") + "</ul>"
+        : "") +
+      (entries.length
+        ? (pending.length ? '<p style="margin:16px 0 4px;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Settled</p>' : "") +
+          '<ul class="rl-log">' + entries.map(function (e) { return row(e, false); }).join("") + "</ul>"
+        : "");
+  }
+
+  function renderActivity() {
+    var out = $("rlActivityOut");
+    out.innerHTML = '<div class="rl-wait"><div class="spinner"></div></div>';
+    call("account-activity.php", { session: S.session })
+      .then(function (d) { out.innerHTML = logHTML(d, "Nothing here yet — your first top-up will appear on this list."); })
+      .catch(function () { out.innerHTML = '<div class="rl-err">Activity could not be loaded. Please try again.</div>'; });
+  }
+
+  /* =============================== SECURITY =============================== */
+
+  function renderSecurity() {
+    var out = $("rlSecurityOut");
+    out.innerHTML = '<div class="rl-wait"><div class="spinner"></div></div>';
+    call("totp-status.php", { session: S.session })
+      .then(function (d) {
+        if (d && d.method === "totp") {
+          out.innerHTML =
+            '<div class="rl-ok">Two-factor authentication is switched on for this account.</div>' +
+            '<p style="margin:14px 0 0;font-size:.86rem;color:var(--text-soft);line-height:1.55">' +
+              "You will be asked for a code the first time you reveal a card number or set up Apple Pay or " +
+              "Google Pay in a session. After that the session stays trusted, so you are not asked again " +
+              "for every action.</p>";
+          return;
+        }
+        out.innerHTML =
+          '<div class="rl-note warn"><p><strong>Not set up yet.</strong> You can set it up now, or leave it — ' +
+            "you will be walked through it automatically the first time you reveal a card number or add a " +
+            "card to a wallet.</p></div>" +
+          '<div class="rl-btn-row"><button type="button" class="rl-btn rl-btn--sm" data-enrol>Set up two-factor now</button></div>' +
+          "<div data-enrolbox></div>";
+        on(out.querySelector("[data-enrol]"), "click", function () {
+          this.disabled = true;
+          enrol(out.querySelector("[data-enrolbox]")).then(function () { renderSecurity(); }).catch(function () {});
+        });
+      })
+      .catch(function () {
+        out.innerHTML = '<div class="rl-err">Security settings could not be loaded. Please try again.</div>';
+      });
+  }
+
+  /* ================================ ERRORS ================================ */
+
+  function errorText(code, fallback) {
+    var map = {
+      insufficient_funds: "Your account balance does not cover this. Top up and try again.",
+      step_up_required:   "Two-factor verification is needed for this.",
+      already_enabled:    "This account already has an authenticator set up.",
+      invalid_session:    "Your session has expired. Sign back in with your recovery token."
+    };
+    return map[code] || fallback || "That did not go through. Please try again.";
+  }
+
+  /* ---------------------------------------------------------------- start */
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
