@@ -171,7 +171,7 @@
 #rlApp .rl-ack input{width:18px!important;height:18px;margin:2px 0 0;flex:none;accent-color:var(--primary)}
 
 /* ---------- account bar ---------- */
-#rlApp .rl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:20px 24px;margin-bottom:20px;
+#rlApp .rl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;min-width:0;padding:20px 24px;margin-bottom:20px;
   background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
 #rlApp .rl-bal-label{font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 #rlApp .rl-bal-value{font-size:1.85rem;font-weight:900;color:var(--text);line-height:1.05;font-variant-numeric:tabular-nums}
@@ -179,18 +179,26 @@
 
 /* ---------- tabs ---------- */
 #rlApp .rl-tabs{display:flex;gap:4px;padding:5px;background:var(--bg-soft);border:1px solid var(--border);
-  border-radius:var(--radius);margin-bottom:20px;overflow-x:auto;-webkit-overflow-scrolling:touch}
-#rlApp .rl-tab{flex:1 1 auto;white-space:nowrap;background:transparent!important;border:none!important;box-shadow:none!important;
+  border-radius:var(--radius);margin-bottom:20px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;-ms-overflow-style:none}
+#rlApp .rl-tabs::-webkit-scrollbar{display:none}
+#rlApp .rl-tab{flex:0 0 auto;white-space:nowrap;background:transparent!important;border:none!important;box-shadow:none!important;
   color:var(--muted)!important;font-weight:700;font-size:.87rem;padding:10px 14px!important;border-radius:var(--radius-sm)!important;
   cursor:pointer;margin:0!important;transition:background .15s,color .15s}
 #rlApp .rl-tab:hover{background:var(--bg-softer)!important;color:var(--text)!important;transform:none!important;box-shadow:none!important}
 #rlApp .rl-tab[aria-selected="true"]{background:var(--card)!important;color:var(--primary)!important;box-shadow:var(--shadow-sm)!important}
+@media(max-width:560px){
+  /* five tabs will not fit one phone row; wrapping keeps every tab reachable
+     instead of hiding the last two behind a horizontal scroll. */
+  #rlApp .rl-tabs{flex-wrap:wrap;overflow-x:visible}
+  #rlApp .rl-tab{flex:1 1 auto;padding:9px 12px!important;font-size:.83rem}
+}
 
 /* ---------- card tiles ---------- */
 /* Brand marks keep the issuer's own SVG source, so these tokens give it a
    palette inside our light card rather than the issuer's dark table chrome. */
 #rlApp{--table_bg:#ffffff;--border_primary:var(--border);--visa_text:#1434CB}
-#rlApp .rl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+#rlApp .rl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:20px}
 #rlApp .rl-card{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;
   background:var(--card);box-shadow:var(--shadow);transition:box-shadow .18s,border-color .18s}
 #rlApp .rl-card:hover{box-shadow:var(--shadow-lg)}
@@ -199,7 +207,7 @@
 #rlApp .rl-accent--shadow{background:#425466}
 #rlApp .rl-accent--eclipse{background:var(--accent)}
 #rlApp .rl-accent--default{background:var(--border-strong)}
-#rlApp .rl-head{display:flex;align-items:center;gap:12px;padding:18px 20px 0}
+#rlApp .rl-head{display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-width:0;padding:18px 20px 0}
 #rlApp .rl-brand{flex:none;display:flex;align-items:center}
 #rlApp .rl-brand svg{display:block;border-radius:0!important;height:24px;width:auto}
 #rlApp .rl-head-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
@@ -219,7 +227,7 @@
 #rlApp .rl-meta dt{font-size:.6rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 #rlApp .rl-meta dd{margin:1px 0 0;font-size:.84rem;font-weight:700;color:var(--text-soft);font-variant-numeric:tabular-nums}
 #rlApp .rl-body{padding:16px 20px 18px;margin-top:16px;border-top:1px solid var(--border);background:var(--bg-soft)}
-#rlApp .rl-money{display:flex;flex-wrap:wrap;gap:14px 22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+#rlApp .rl-money{display:flex;flex-wrap:wrap;gap:14px 22px;min-width:0;padding-bottom:14px;border-bottom:1px solid var(--border)}
 #rlApp .rl-money div{min-width:88px}
 #rlApp .rl-money dt{font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 #rlApp .rl-money dd{margin:2px 0 0;font-size:1rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
@@ -239,14 +247,14 @@
 #rlApp .rl-empty-card p{margin:0;font-size:.82rem;color:var(--text-soft);line-height:1.5}
 /* ---------- reveal ---------- */
 #rlApp .rl-reveal{margin-top:16px;padding:18px;border-radius:var(--radius);border:1.5px solid var(--primary);background:var(--primary-soft)}
-#rlApp .rl-reveal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:14px;margin-top:12px}
+#rlApp .rl-reveal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(110px,100%),1fr));gap:14px;margin-top:12px}
 #rlApp .rl-reveal-grid dt{font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 #rlApp .rl-reveal-grid dd{margin:3px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:1rem;font-weight:700;color:var(--text);word-break:break-all}
 #rlApp .rl-reveal-timer{font-size:.76rem;font-weight:700;color:var(--muted);margin-top:14px}
 
 /* ---------- tier picker: the same light card language ---------- */
-#rlApp .rl-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-top:6px}
+#rlApp .rl-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:18px;margin-top:6px}
 #rlApp .rl-tier{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--card);
   border:1.5px solid var(--border-strong);border-radius:var(--radius-lg);overflow:hidden;
   box-shadow:var(--shadow-sm);cursor:pointer;
@@ -262,7 +270,15 @@
   stroke:#fff;stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:opacity .18s}
 #rlApp .rl-tier.is-on .rl-tier-tick{background:var(--primary);border-color:var(--primary)}
 #rlApp .rl-tier.is-on .rl-tier-tick svg{opacity:1}
-#rlApp .rl-tier-head{padding:16px 18px 0;display:flex;flex-direction:column;gap:5px;padding-right:44px}
+#rlApp .rl-tier-head{padding:16px 18px 0;display:flex;flex-direction:column;gap:5px;min-width:0;padding-right:44px}
+#rlApp .rl-tier-top{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+/* what the tier can be paid with — Apple Pay, Google Pay, tap to pay */
+#rlApp .rl-tier-wallets{display:inline-flex;align-items:center;gap:7px;color:var(--text-soft)}
+#rlApp .rl-tier-wallets .rl-w{display:inline-flex}
+#rlApp .rl-tier-wallets svg{width:15px;height:15px;display:block;border-radius:0!important}
+#rlApp .rl-tier-wallets .rl-w--apple svg{fill:currentColor}
+#rlApp .rl-tier-wallets .rl-w--nfc{color:var(--muted)}
+#rlApp .rl-tier.is-on .rl-tier-wallets,#rlApp .rl-tier:hover:not(.is-off) .rl-tier-wallets{color:var(--text)}
 #rlApp .rl-tier-d{font-size:.82rem;font-weight:600;color:var(--text-soft);line-height:1.35}
 #rlApp .rl-tier-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;padding:12px 18px 10px}
 #rlApp .rl-tier-price b{font-size:1.55rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -274,8 +290,15 @@
   background:var(--primary);margin-top:.55em}
 #rlApp .rl-tier.is-off .rl-tier-specs li::before{background:var(--muted)}
 #rlApp .rl-tier-foot{margin-top:auto;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg-soft);
-  font-size:.74rem;font-weight:700;color:var(--muted)}
+  font-size:.74rem;font-weight:700;color:var(--muted);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+#rlApp .rl-tier-foot-t{min-width:0}
+/* minted against the per-tier cap, both read from the API */
+#rlApp .rl-tier-cap{flex:none;font-size:.68rem;font-weight:800;letter-spacing:.02em;white-space:nowrap;
+  padding:3px 9px;border-radius:999px;background:var(--bg-softer);color:var(--text-soft)}
+#rlApp .rl-tier-cap.is-full{background:rgba(245,166,35,.16);color:#9a5b00}
 #rlApp .rl-tier.is-on .rl-tier-foot{color:var(--primary);background:var(--primary-soft)}
+#rlApp .rl-tier.is-on .rl-tier-cap{background:#fff;color:var(--primary)}
 
 /* ---------- deposit ---------- */
 #rlApp .rl-deposit{display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
@@ -290,7 +313,7 @@
 #rlApp .rl-ring-lab{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:5px}
 #rlApp .rl-ring-wrap.is-ending .rl-ring-bar{stroke:var(--danger)}
 #rlApp .rl-ring-wrap.is-ending .rl-ring-time{color:var(--danger)}
-#rlApp .rl-dep-facts{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;text-align:left}
+#rlApp .rl-dep-facts{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px;text-align:left}
 #rlApp .rl-fact{padding:13px 15px;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius-sm)}
 #rlApp .rl-fact dt{font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 #rlApp .rl-fact dd{margin:3px 0 0;font-size:.98rem;font-weight:800;color:var(--text);word-break:break-word}
@@ -344,7 +367,7 @@
   width:28px;height:28px;border-radius:9px;background:var(--primary-soft);color:var(--primary);
   font-size:.72rem;font-weight:900;display:flex;align-items:center;justify-content:center}
 #rlApp .rl-steps li strong{color:var(--text)}
-#rlApp .rl-choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:4px 0 18px}
+#rlApp .rl-choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:12px;margin:4px 0 18px}
 #rlApp .rl-choice button{display:flex;align-items:center;justify-content:center;gap:9px;background:var(--card)!important;
   color:var(--text)!important;border:1.5px solid var(--border-strong)!important;box-shadow:var(--shadow-sm)!important;
   border-radius:var(--radius)!important;padding:14px!important;font-weight:800;font-size:.92rem;margin:0!important;cursor:pointer}
@@ -377,17 +400,17 @@
 #rlApp .rl-acc-body{padding:2px 20px 18px;border-top:1px solid var(--border);font-size:.87rem;color:var(--text-soft);line-height:1.6}
 #rlApp .rl-acc-body p{font-size:inherit;color:inherit}
 #rlApp .rl-mccgroup{margin:16px 0 4px;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-#rlApp .rl-mcclist{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 20px;margin:0;padding:0;font-size:.8rem}
+#rlApp .rl-mcclist{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:0 20px;margin:0;padding:0;font-size:.8rem}
 #rlApp .rl-mcclist li{padding:3px 0;display:flex;gap:9px;color:var(--text-soft);margin:0}
 #rlApp .rl-mcclist b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--primary);font-weight:600;flex:none}
-#rlApp .rl-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0 4px}
+#rlApp .rl-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px;margin:14px 0 4px}
 #rlApp .rl-group{padding:13px 15px;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius-sm)}
 #rlApp .rl-group b{display:block;font-size:.85rem;color:var(--text);margin-bottom:3px}
 #rlApp .rl-group i{font-style:normal;font-size:.66rem;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.05em}
 #rlApp .rl-group p{margin:4px 0 0;font-size:.79rem;color:var(--text-soft);line-height:1.45}
-#rlApp .rl-spec{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:12px 0 0;font-size:.84rem}
+#rlApp .rl-spec{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 18px;margin:12px 0 0;font-size:.84rem}
 #rlApp .rl-spec dt{font-size:.64rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px;white-space:nowrap}
-#rlApp .rl-spec dd{margin:0;color:var(--text-soft);line-height:1.5}@media(max-width:520px){#rlApp .rl-spec{grid-template-columns:1fr;gap:2px}#rlApp .rl-spec dt{padding-top:9px}}
+#rlApp .rl-spec dd{margin:0;color:var(--text-soft);line-height:1.5}@media(max-width:520px){#rlApp .rl-spec{grid-template-columns:minmax(0,1fr);gap:2px}#rlApp .rl-spec dt{padding-top:9px;white-space:normal}}
 #rlApp .rl-hidden{display:none!important}
 /* forms inside the reloadable app are laid out by their panel, not by the
    site-wide .pg-content form card treatment */
@@ -395,6 +418,24 @@
   padding:0!important;box-shadow:none!important;margin:0!important;max-width:none!important}
 #rlApp .copy-text{margin-top:6px}
 #rlApp .copy-text input.text{font-size:.88rem}
+
+/* ---------------------------------------------------------------------------
+   Responsive guard. Grid and flex items default to min-width:auto, so a single
+   long word, a nowrap chip or a fixed track minimum can make a child wider than
+   the column it sits in; the column keeps its width and the child spills out of
+   it. These rules make that impossible anywhere in the widget, whatever page it
+   is dropped into.
+   --------------------------------------------------------------------------- */
+#rlApp .rl-panel,#rlApp .rl-bar,#rlApp .rl-head,#rlApp .rl-money,#rlApp .rl-meta,
+#rlApp .rl-chips,#rlApp .rl-card-actions,#rlApp .rl-btn-row,#rlApp .rl-log li,
+#rlApp .rl-tier,#rlApp .rl-tier-head,#rlApp .rl-tier-top,#rlApp .rl-tier-price,
+#rlApp .rl-tx-sub,#rlApp .rl-fact,#rlApp .rl-choice button,#rlApp dl,#rlApp dd,#rlApp p{min-width:0}
+#rlApp .rl-mono,#rlApp input.rl-mono{overflow-wrap:anywhere;word-break:break-all}
+#rlApp img,#rlApp svg,#rlApp canvas{max-width:100%}
+#rlApp pre,#rlApp code{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:400px){
+  #rlApp .rl-panel{padding:20px 16px}
+}
 </style>
 </head>
 <body>
@@ -838,6 +879,10 @@
   var SVG_GOOGLE =
     '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>';
 
+  /* contactless / tap to pay */
+  var SVG_NFC =
+    '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M7.9 8.55a4.5 4.5 0 0 1 0 6.9"></path><path d="M10.46 5.49a8.5 8.5 0 0 1 0 13.02" opacity="0.8"></path><path d="M13.04 2.42a12.5 12.5 0 0 1 0 19.16" opacity="0.6"></path></g></svg>';
+
   /* ------------------------------------------------------------- utilities */
   var $  = function (id) { return document.getElementById(id); };
   var on = function (el, ev, fn) { if (el) el.addEventListener(ev, fn); };
@@ -1176,6 +1221,41 @@
           '<div class="rl-panel"><div class="rl-err">We could not load your cards just now. ' +
           'Check your connection and press Refresh.</div></div>';
       });
+  }
+
+  /* Which wallets each tier can be added to. The card list is the source of
+     truth for a card that already exists; this is what the tier picker shows
+     before one is minted. Keys not listed here simply show no marks. */
+  var TIER_WALLETS = {
+    aurora:  ["apple", "google", "nfc"],
+    shadow:  ["google"],
+    eclipse: []
+  };
+  var WALLET_LABEL = { apple: "Apple Pay", google: "Google Pay", nfc: "Tap to pay" };
+
+  function tierWallets(tier) {
+    var keys = TIER_WALLETS[tier];
+    if (!keys || !keys.length) return "";
+    var svg = { apple: SVG_APPLE, google: SVG_GOOGLE, nfc: SVG_NFC };
+    var title = keys.map(function (k) { return WALLET_LABEL[k]; }).join(" · ");
+    return '<span class="rl-tier-wallets" title="' + esc(title) + '" aria-label="' + esc(title) + '">' +
+      keys.map(function (k) {
+        return '<span class="rl-w rl-w--' + k + '">' + svg[k] + "</span>";
+      }).join("") + "</span>";
+  }
+
+  /* How many of this tier the account already holds, against the cap the API
+     reports for it — both read live, never hardcoded. */
+  function tierCount(tier) {
+    return S.cards.filter(function (c) { return String(c.tier).toLowerCase() === tier; }).length;
+  }
+  function capBadge(tier) {
+    var cap = S.catalog && S.catalog.tierCaps && S.catalog.tierCaps[tier];
+    if (typeof cap !== "number") return "";
+    var have = tierCount(tier), full = have >= cap;
+    return '<span class="rl-tier-cap' + (full ? " is-full" : "") + '" ' +
+           'title="' + have + ' of ' + cap + ' ' + esc(tier) + ' cards minted">' +
+           have + " of " + cap + "</span>";
   }
 
   function walletMarks(c) {
@@ -1919,7 +1999,10 @@
           '<span class="rl-accent rl-accent--' + k + '"></span>' +
           '<span class="rl-tier-tick">' + TICK + "</span>" +
           '<div class="rl-tier-head">' +
-            '<span class="rl-tier-pill rl-pill--' + k + '">' + esc(tier) + "</span>" +
+            '<span class="rl-tier-top">' +
+              '<span class="rl-tier-pill rl-pill--' + k + '">' + esc(tier) + "</span>" +
+              tierWallets(tier) +
+            "</span>" +
             '<span class="rl-tier-d">' + esc(TIER_BLURB[tier] || "Reloadable virtual card") + "</span>" +
           "</div>" +
           '<div class="rl-tier-price"><b>' + usd(p.now) + "</b>" +
@@ -1928,7 +2011,10 @@
           '<ul class="rl-tier-specs">' +
             specs.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") +
           "</ul>" +
-          '<div class="rl-tier-foot">' + esc(blocked || "Mints empty · load from " + usd(MIN_LOAD)) + "</div>" +
+          '<div class="rl-tier-foot">' +
+            '<span class="rl-tier-foot-t">' + esc(blocked || "Mints empty · load from " + usd(MIN_LOAD)) + "</span>" +
+            capBadge(tier) +
+          "</div>" +
         "</div>";
     }).join("");
 
