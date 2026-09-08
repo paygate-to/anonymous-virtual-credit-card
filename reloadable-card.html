@@ -159,6 +159,14 @@
 #rlApp .rl-fund-echo.is-ok{color:var(--primary-dark)}
 #rlApp .rl-fund-echo.is-low{color:var(--danger)}
 
+#rlApp .rl-await{display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;
+  border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-soft);padding:22px;margin-top:22px}
+#rlApp .rl-await-coin{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;color:var(--text)}
+#rlApp .rl-await-coin img{width:28px;height:28px;border-radius:50%;object-fit:contain;background:#fff;flex:none}
+#rlApp .rl-await-net{font-weight:600;font-size:.86rem;color:var(--text-soft)}
+#rlApp .rl-await-when{font-size:.88rem;color:var(--text-soft);line-height:1.5;max-width:46ch}
+#rlApp .rl-await-when strong{color:var(--text)}
+
 /* ---------- blocking spinner ---------- */
 #rlApp .rl-wait{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:34px 20px}
 #rlApp .rl-wait-title{font-weight:800;font-size:1.05rem;color:var(--text)}
@@ -595,7 +603,7 @@
     <div class="rl-tabpanel rl-hidden" data-panel="topup">
       <div class="rl-panel">
         <h3 class="rl-h">Top up your balance</h3>
-        <p class="rl-sub">Choose a coin and send at least the minimum shown to the address generated for you. Your balance is credited automatically once the transaction confirms.</p>
+        <p class="rl-sub" id="rlDepositSub">Choose a coin and send at least the minimum shown to the address generated for you. Your balance is credited automatically once the transaction confirms.</p>
         <form id="rlDepositForm" autocomplete="off">
           <label for="rlTicker">Deposit currency</label>
           <select id="rlTicker">
@@ -614,9 +622,11 @@
             <button type="submit" class="rl-btn" id="rlDepositBtn">Generate deposit address</button>
           </div>
         </form>
-        <div class="rl-note danger">
+        <div class="rl-note danger" id="rlDepositNote">
           <p><strong>Send the exact coin on the exact network shown, at or above the minimum.</strong> Anything else — a different coin, a different chain, or an amount below the minimum — is permanently lost and cannot be refunded or recovered.</p>
         </div>
+        <div id="rlDepositGate" class="rl-wait"><div class="spinner"></div>
+          <div class="rl-wait-sub">Checking for a deposit already in progress…</div></div>
         <div id="rlDepositOut"></div>
       </div>
     </div>
@@ -837,6 +847,7 @@
   var HOST      = CONFIG.HOST;
   var API       = HOST + "/crypto/cards/reloadable/";
   var COIN_API  = HOST + "/crypto/";            /* {ticker}/cards/reloadable/… */
+  var COIN_INDEX_URL = HOST + "/crypto/info.php";  /* public coin index, for marks */
   var INFO_API  = HOST + "/crypto/info.php";
   var COOKIE    = CONFIG.cookieName;
   var MIN_LOAD   = 1500;                         /* $15.00, in cents */
@@ -1212,6 +1223,7 @@
       if (name === "activity") renderActivity();
       if (name === "security") renderSecurity();
       if (name === "issue")    renderTiers();
+      if (name === "topup")    renderTopup();
     });
   });
 
@@ -2143,6 +2155,157 @@
     echo.classList.toggle("is-ok", typed && !low);
   });
 
+
+  /* ------------------------- deposits in progress -------------------------
+     The account accepts one awaiting deposit at a time, so the form is shown
+     only once list-active-deposits.php says nothing is outstanding. That call
+     never returns an address or a QR code — those exist only in the reply that
+     created the deposit — so a customer coming back to the page is shown the
+     coin and the expiry, and cancels if they want a fresh address. */
+
+  /* The active-deposit list reports payCurrency in a flattened form
+     ("usdterc20"), not as the path ticker ("erc20/usdt"). Map the supported
+     coins both ways and fall back to showing the value as given, so an
+     unrecognised coin still reads sensibly instead of breaking the panel. */
+  var PAY_CURRENCY = {
+    btc:       { ticker: "btc",        coin: "Bitcoin",  network: "Bitcoin" },
+    xmr:       { ticker: "xmr",        coin: "Monero",   network: "Monero" },
+    ltc:       { ticker: "ltc",        coin: "Litecoin", network: "Litecoin" },
+    eth:       { ticker: "eth",        coin: "Ethereum", network: "Ethereum" },
+    usdcerc20: { ticker: "erc20/usdc", coin: "USD Coin", network: "Ethereum (ERC-20)" },
+    erc20usdc: { ticker: "erc20/usdc", coin: "USD Coin", network: "Ethereum (ERC-20)" },
+    usdterc20: { ticker: "erc20/usdt", coin: "Tether",   network: "Ethereum (ERC-20)" },
+    erc20usdt: { ticker: "erc20/usdt", coin: "Tether",   network: "Ethereum (ERC-20)" }
+  };
+  function payCurrency(v) {
+    var k = String(v == null ? "" : v).toLowerCase().replace(/[^a-z0-9]/g, "");
+    return PAY_CURRENCY[k] ||
+           { ticker: "", coin: String(v || "").toUpperCase() || "Cryptocurrency", network: "" };
+  }
+
+  /* The public coin index, fetched at most once. Purely decorative: without it
+     the panel simply shows the coin in words. */
+  var coinIndexP = null;
+  function coinIndex() {
+    if (!coinIndexP) {
+      coinIndexP = req(COIN_INDEX_URL, { timeout: 8000 }).catch(function () { return null; });
+    }
+    return coinIndexP;
+  }
+  function coinLogo(info, ticker) {
+    if (!info || !ticker) return null;
+    if (ticker.indexOf("/") !== -1) {
+      var p = ticker.split("/"), net = p[0], sym = p.slice(1).join("/");
+      return (info[net] && info[net][sym] && info[net][sym].logo) || null;
+    }
+    return (info[ticker] && info[ticker].logo) || null;
+  }
+
+  /* An absolute instant, written in the reader's own time zone. */
+  function localWhen(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric",
+                                         hour: "2-digit", minute: "2-digit" });
+  }
+
+  function showDepositForm(yes) {
+    show($("rlDepositForm"), yes);
+    show($("rlDepositNote"), yes);
+    /* the lead-in promises an address, which the awaiting panel cannot show */
+    show($("rlDepositSub"), yes);
+  }
+
+  /* Entering the Top up tab, and after any cancel, re-asks the API. */
+  function renderTopup() {
+    var gate = $("rlDepositGate"), out = $("rlDepositOut");
+    stopDepositTimer();
+    out.innerHTML = "";
+    showDepositForm(false);
+    show(gate, true);
+    gate.innerHTML = '<div class="spinner"></div>' +
+      '<div class="rl-wait-sub">Checking for a deposit already in progress…</div>';
+
+    return call("list-active-deposits.php", { session: S.session })
+      .then(function (d) {
+        var list = Object.prototype.toString.call(d) === "[object Array]" ? d : [];
+        var live = null;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].status === "awaiting") { live = list[i]; break; }
+        }
+        show(gate, false);
+        if (!live) { showDepositForm(true); return; }
+        paintAwaiting(out, live);
+      })
+      .catch(function () {
+        show(gate, false);
+        showDepositForm(true);
+        out.innerHTML = '<div class="rl-note warn"><p>We could not check whether a deposit is ' +
+          "already in progress. If generating an address fails, one is still open — reopen this " +
+          "tab in a moment to see it.</p></div>";
+      });
+  }
+
+  /* The returning customer: coin and expiry, no address and no QR, because the
+     API does not hand those back a second time. */
+  function paintAwaiting(out, dep) {
+    var c = payCurrency(dep.payCurrency);
+    out.innerHTML =
+      '<div class="rl-await">' +
+        '<div class="rl-ring-wrap" id="rlRing">' +
+          '<svg class="rl-ring" viewBox="0 0 120 120" aria-hidden="true">' +
+            '<circle class="rl-ring-track" cx="60" cy="60" r="54"></circle>' +
+            '<circle class="rl-ring-bar" id="rlRingBar" cx="60" cy="60" r="54"></circle>' +
+          "</svg>" +
+          '<div class="rl-ring-in"><span class="rl-ring-time" id="rlRingTime">--:--</span>' +
+            '<span class="rl-ring-lab">remaining</span></div>' +
+        "</div>" +
+        '<div class="rl-await-coin"><img alt="" id="rlAwaitLogo" style="display:none">' +
+          "<span>" + esc(c.coin) + " deposit awaiting</span></div>" +
+        (c.network ? '<div class="rl-await-net">on ' + esc(c.network) + "</div>" : "") +
+        '<div class="rl-await-when">Expires <strong>' + esc(localWhen(dep.expiresAt)) +
+          "</strong>, your local time.<br>" +
+          "The deposit address and QR code are shown only once, when the deposit is created, " +
+          "so they cannot be displayed again here. If you have not sent yet, cancel and " +
+          "generate a new address.</div>" +
+        '<div class="rl-btn-row"><button type="button" class="rl-btn rl-btn--danger" ' +
+          'data-cancel-deposit="' + esc(dep.id) + '">Cancel this deposit</button></div>' +
+        '<div data-cancel-msg></div>' +
+      "</div>";
+    wireCancel(out);
+    coinIndex().then(function (info) {
+      var url = coinLogo(info, c.ticker), img = $("rlAwaitLogo");
+      if (url && img) { img.src = url; img.style.display = ""; }
+    });
+    startDepositTimer(dep.expiresAt, null, out);
+  }
+
+  /* One handler for both panels: the awaiting one and the freshly created one. */
+  function wireCancel(scope) {
+    var btn = scope.querySelector("[data-cancel-deposit]");
+    if (!btn) return;
+    on(btn, "click", function () {
+      var id = btn.getAttribute("data-cancel-deposit");
+      var msg = scope.querySelector("[data-cancel-msg]");
+      btn.disabled = true;
+      btn.textContent = "Cancelling…";
+      call("cancel-deposit.php", { session: S.session, id: id })
+        .then(function (d) {
+          if (!d || !d.ok) throw new Error("cancel_failed");
+          stopDepositTimer();
+          renderTopup();
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = "Cancel this deposit";
+          if (msg) {
+            msg.innerHTML = '<div class="rl-err">This deposit could not be cancelled right now. ' +
+              "Please try again.</div>";
+          }
+        });
+    });
+  }
+
   function stopDepositTimer() {
     if (S.depositTimer) { clearInterval(S.depositTimer.id); S.depositTimer = null; }
   }
@@ -2165,6 +2328,7 @@
     req(depositUrl(ticker, cents))
       .then(function (d) {
         if (!d || !d.ok || !d.address_in) throw new Error(d && d.error ? d.error : "deposit_failed");
+        showDepositForm(false);
         paintDeposit(out, d, cents);
       })
       .catch(function () {
@@ -2202,11 +2366,16 @@
           "This address is for this deposit only and stops accepting funds when the timer ends. " +
           "Your balance updates automatically once the transaction confirms — press " +
           "<strong>Refresh</strong> at the top to check.</p>" +
+        '<div class="rl-btn-row" style="justify-content:center">' +
+          '<button type="button" class="rl-btn rl-btn--danger" data-cancel-deposit="' +
+            esc(d.id || "") + '">Cancel this deposit</button></div>' +
+        '<div data-cancel-msg></div>' +
         (d.ipn_token ? '<p style="margin:0;font-size:.72rem;color:var(--muted);text-align:center;word-break:break-all">' +
           "Tracking reference: " + esc(String(d.ipn_token).slice(0, 24)) + "…</p>" : "") +
       "</div>";
 
     wireCopy(out);
+    wireCancel(out);
     startDepositTimer(d.expiresAt, d.createdAt, out);
   }
 
