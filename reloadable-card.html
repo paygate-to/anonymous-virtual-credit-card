@@ -403,12 +403,14 @@
 #rlApp .rl-acc{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);
   box-shadow:var(--shadow-sm);margin:0 0 12px;overflow:hidden}
 #rlApp .rl-acc>summary{cursor:pointer;list-style:none;padding:16px 20px;font-weight:800;font-size:.98rem;color:var(--text);
+  flex-wrap:wrap;
   display:flex;align-items:center;gap:11px}
 #rlApp .rl-acc>summary::-webkit-details-marker{display:none}
 #rlApp .rl-acc>summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
   transform:rotate(-45deg);flex:none;margin-left:2px;transition:transform .18s}
 #rlApp .rl-acc[open]>summary::before{transform:rotate(45deg)}
 #rlApp .rl-acc>summary .rl-acc-c{margin-left:auto;font-size:.7rem;font-weight:800;color:var(--muted);
+  white-space:nowrap;flex:none;
   background:var(--bg-softer);padding:3px 9px;border-radius:999px;letter-spacing:.03em}
 #rlApp .rl-acc-body{padding:2px 20px 18px;border-top:1px solid var(--border);font-size:.87rem;color:var(--text-soft);line-height:1.6}
 #rlApp .rl-acc-body p{font-size:inherit;color:inherit}
