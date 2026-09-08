@@ -154,6 +154,11 @@
 #rlApp .rl-ok{margin:12px 0 0;padding:11px 14px;border-radius:var(--radius-sm);background:rgba(0,212,177,.13);
   color:#0a7d5a;font-size:.86rem;font-weight:600;border:1px solid rgba(0,212,177,.28)}
 
+#rlApp .rl-fund-echo{margin:8px 0 0;font-size:.86rem;font-weight:700;
+  color:var(--text-soft);min-height:1.25em}
+#rlApp .rl-fund-echo.is-ok{color:var(--primary-dark)}
+#rlApp .rl-fund-echo.is-low{color:var(--danger)}
+
 /* ---------- blocking spinner ---------- */
 #rlApp .rl-wait{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:34px 20px}
 #rlApp .rl-wait-title{font-weight:800;font-size:1.05rem;color:var(--text)}
@@ -601,6 +606,10 @@
             <option value="erc20/usdc">USDC (Ethereum ERC-20)</option>
             <option value="erc20/usdt">USDT (Ethereum ERC-20)</option>
           </select>
+          <label for="rlFundAmt">Amount to fund (USD)</label>
+          <input type="number" id="rlFundAmt" step="0.01" min="30" placeholder="30.00"
+                 inputmode="decimal" required aria-describedby="rlFundEcho">
+          <p class="rl-fund-echo" id="rlFundEcho" role="status" aria-live="polite"></p>
           <div class="rl-btn-row">
             <button type="submit" class="rl-btn" id="rlDepositBtn">Generate deposit address</button>
           </div>
@@ -831,6 +840,7 @@
   var INFO_API  = HOST + "/crypto/info.php";
   var COOKIE    = CONFIG.cookieName;
   var MIN_LOAD   = 1500;                         /* $15.00, in cents */
+  var MIN_FUND   = 3000;                         /* $30.00, in cents — funding is refused below this */
   var MIN_UNLOAD = 1500;                         /* the same floor applies coming back off a card */
   var SIGNUP_TIMEOUT = 95000;                    /* signup is slow by design */
   var SIGNIN_TIMEOUT = 95000;                    /* signin does the same work and can be just as slow */
@@ -2091,25 +2101,47 @@
     return "";
   }
 
-  function depositUrl(ticker) {
+  function depositUrl(ticker, amount) {
     var base = COIN_API + ticker + "/cards/reloadable/";
     var aff = walletFor(CONFIG.affiliate, ticker);
     var sub = walletFor(CONFIG.sub_affiliate, ticker);
 
     if (aff && CONFIG.affiliate_fee && sub && CONFIG.sub_affiliate_fee) {
       return base + "custom-sub-affiliate.php?" + q({
-        session: S.session,
+        session: S.session, amount: amount,
         affiliate: aff, affiliate_fee: CONFIG.affiliate_fee,
         sub_affiliate: sub, sub_affiliate_fee: CONFIG.sub_affiliate_fee
       });
     }
     if (aff && CONFIG.affiliate_fee) {
       return base + "custom-affiliate.php?" + q({
-        session: S.session, affiliate: aff, affiliate_fee: CONFIG.affiliate_fee
+        session: S.session, amount: amount, affiliate: aff, affiliate_fee: CONFIG.affiliate_fee
       });
     }
-    return base + "wallet.php?" + q({ session: S.session });
+    return base + "wallet.php?" + q({ session: S.session, amount: amount });
   }
+
+
+  /* The funding endpoints take an integer number of US cents and reject
+     anything under $30.00. The customer therefore types dollars, sees the
+     amount echoed back in currency form, and the request carries the cents. */
+  function fundCents() {
+    var el = $("rlFundAmt");
+    var v = el ? parseFloat(String(el.value).replace(/[^0-9.]/g, "")) : NaN;
+    return isFinite(v) ? Math.round(v * 100) : NaN;
+  }
+
+  on($("rlFundAmt"), "input", function () {
+    var echo = $("rlFundEcho"), cents = fundCents();
+    if (!echo) return;
+    var typed = isFinite(cents) && cents > 0;
+    var low   = typed && cents < MIN_FUND;
+    echo.textContent = !typed ? ""
+      : low ? usd(cents) + " is below the " + usd(MIN_FUND) + " minimum"
+            : "Funding " + usd(cents);
+    echo.classList.toggle("is-low", low);
+    echo.classList.toggle("is-ok", typed && !low);
+  });
 
   function stopDepositTimer() {
     if (S.depositTimer) { clearInterval(S.depositTimer.id); S.depositTimer = null; }
@@ -2118,15 +2150,22 @@
   on($("rlDepositForm"), "submit", function (e) {
     e.preventDefault();
     var ticker = $("rlTicker").value;
+    var cents = fundCents();
+    if (!isFinite(cents) || cents < MIN_FUND) {
+      $("rlDepositOut").innerHTML = '<div class="rl-err">Enter the amount you want to fund. ' +
+        "The minimum is " + usd(MIN_FUND) + ".</div>";
+      if ($("rlFundAmt")) $("rlFundAmt").focus();
+      return;
+    }
     var btn = $("rlDepositBtn"), out = $("rlDepositOut");
     btn.disabled = true; btn.textContent = "Generating…";
     out.innerHTML = '<div class="rl-wait"><div class="spinner"></div><div class="rl-wait-sub">Creating your deposit address…</div></div>';
     stopDepositTimer();
 
-    req(depositUrl(ticker))
+    req(depositUrl(ticker, cents))
       .then(function (d) {
         if (!d || !d.ok || !d.address_in) throw new Error(d && d.error ? d.error : "deposit_failed");
-        paintDeposit(out, d);
+        paintDeposit(out, d, cents);
       })
       .catch(function () {
         out.innerHTML = '<div class="rl-err">A deposit address could not be created right now. Please try again.</div>';
@@ -2134,7 +2173,7 @@
       .finally(function () { btn.disabled = false; btn.textContent = "Generate deposit address"; });
   });
 
-  function paintDeposit(out, d) {
+  function paintDeposit(out, d, cents) {
     out.innerHTML =
       '<div class="rl-deposit" style="margin-top:22px">' +
         '<div class="rl-ring-wrap" id="rlRing">' +
@@ -2148,6 +2187,7 @@
         (d.qr_code ? '<div class="rl-qr"><img src="data:image/png;base64,' + esc(d.qr_code) +
                      '" alt="Payment QR code"></div>' : "") +
         '<dl class="rl-dep-facts">' +
+          '<div class="rl-fact"><dt>Funding</dt><dd>' + usd(cents) + "</dd></div>" +
           '<div class="rl-fact"><dt>Send</dt><dd>' + esc(d.asset || "") + "</dd></div>" +
           '<div class="rl-fact"><dt>Network</dt><dd>' + esc(d.network || "") + "</dd></div>" +
           '<div class="rl-fact rl-fact--min"><dt>Minimum — below this is lost</dt><dd>' +
